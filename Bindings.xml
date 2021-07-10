@@ -1,0 +1,13 @@
+<Bindings>
+   <Layer name="SI_KEYBINDINGS_LAYER_GENERAL">
+      <Category name="Auto Follow">
+         <Action name="FOLLOW_LEADER">
+            <Down>AutoFollow:FollowLeaderStart()</Down>
+            <Up>AutoFollow:FollowLeaderStop()</Up>
+         </Action>
+         <Action name="FOLLOW_TEST">
+            <Down>AutoFollow:SingleCheck()</Down>
+         </Action>
+      </Category>
+   </Layer>
+</Bindings>

@@ -1,0 +1,21 @@
+## Title: AutoFollow
+## Author: Phrosty1
+## APIVersion: 100035 100036
+## AddOnVersion: 001
+## Version: 0.01
+## DependsOn: LibPixelControl
+## SavedVariables: AutoFollowSavedVariables
+
+# blank lines are ignored
+# both '#' and ';' are comment characters
+; the double hashmarks ('##') above are parts of the "metadata" definitions for the manifest file. You must include the '##' for a
+; directive to be recognized, and you cannot have whitespace in front of them
+
+# lua files for the addon, which can come before or after XML files
+SaveAndRestoreKeys.lua
+AutoFollow.lua
+Bindings.xml
+
+# This Add-on is not created by, affiliated with, or sponsored by, ZeniMax Media Inc. or its affiliates.
+# The Elder Scrolls® and related logos are registered trademarks or trademarks of ZeniMax Media Inc. in the United States
+# and/or other countries. All rights reserved.
