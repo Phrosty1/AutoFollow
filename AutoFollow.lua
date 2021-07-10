@@ -5,7 +5,7 @@ AutoFollowSavedVariables = AutoFollowSavedVariables or {}
 AutoFollow.savedVars = AutoFollowSavedVariables
 AutoFollow.savedVars.log = {}
 local ptk = LibPixelControl
-local verbose = true -- true -- false
+local verbose = false -- true -- false
 local GetGameTimeMilliseconds = GetGameTimeMilliseconds
 local ms_time = GetGameTimeMilliseconds()
 local function dmsg(txt)
@@ -260,7 +260,7 @@ local function GetDirAndDist(fromX, fromY, toX, toY)
    return dir, zo_sqrt((diffX * diffX) + (diffY * diffY))
 end
 local function ClearNavigation()
-   d("ClearNavigation")
+   dmsg("ClearNavigation")
    targetUnitTag = nil
    targetUnitName = nil
    EVENT_MANAGER:UnregisterForUpdate(ADDON_NAME)
@@ -287,17 +287,17 @@ local function MoveToTarget()
 	local playerX, playerY, playerHeading = GetMapPlayerPosition("player") -- * GetMapPlayerPosition(*string* _unitTag_) ** _Returns:_ *number* _normalizedX_, *number* _normalizedZ_, *number* _heading_, *bool* _isShownInCurrentMap_
 	local playerCamHeading = GetPlayerCameraHeading() -- math.abs(playerHeading - math.pi * 2) + GetPlayerCameraHeading()
    local indLookLeft, indLookQuickLeft, indLookRight, indLookQuickRight, indMoveForward, indRunForward, indUseDoor
-   d("---------------")
+   dmsg("---------------")
    local targetDirection, targetDistance = GetDirAndDist(playerX, playerY, targetX, targetY)
    local turnDirection = ((pi+(playerCamHeading-targetDirection))%(pi*2))-pi
    local turnPower = math.abs(turnDirection)
-   d(("playerX:"..tostring(playerX)).." "..("playerY:"..tostring(playerY)).." "..("dir:"..tostring(playerCamHeading)))
-   d(("(playerX-targetX):"..tostring(playerX-targetX)).." "..("(playerY-targetY):"..tostring(playerY-targetY)))
-   d("targetDistance:"..tostring(targetDistance))
-   d("targetDirection:"..tostring(targetDirection))
-   d("turnDirection:"..tostring(turnDirection))
-   d("targetOnSamePlayerMap:"..tostring(targetOnSamePlayerMap))
-   d("targetChangedMaps:"..tostring(targetChangedMaps))
+   dmsg(("playerX:"..tostring(playerX)).." "..("playerY:"..tostring(playerY)).." "..("dir:"..tostring(playerCamHeading)))
+   dmsg(("(playerX-targetX):"..tostring(playerX-targetX)).." "..("(playerY-targetY):"..tostring(playerY-targetY)))
+   dmsg("targetDistance:"..tostring(targetDistance))
+   dmsg("targetDirection:"..tostring(targetDirection))
+   dmsg("turnDirection:"..tostring(turnDirection))
+   dmsg("targetOnSamePlayerMap:"..tostring(targetOnSamePlayerMap))
+   dmsg("targetChangedMaps:"..tostring(targetChangedMaps))
 
    local curAction, curInteractableName, curInteractBlocked, curIsOwned, curAdditionalInfo, curContextualInfo, curContextualLink, curIsCriminalInteract
    local personalSpace = 0.02
@@ -310,7 +310,7 @@ local function MoveToTarget()
                      .."/"..ternary(CanInteractWithItem(), "CanInteract", "CanNotInteract")
                      .."/"..ternary(IsInteracting(), "IsInteracting", "IsNotInteracting")
                      .."/"..ternary(IsPlayerTryingToMove(), "TryingToMove", "NotTryingToMove")
-         d(reticleString)
+         dmsg(reticleString)
          if curAction ~= nil and not curInteractBlocked and not IsInteracting() and CanInteractWithItem() then
             indUseDoor = true
          end
@@ -359,6 +359,7 @@ function AutoFollow:FollowLeaderStart()
          MoveToTarget()
       end
    else
+      d("Follow Unit OFF")
       ClearNavigation()
    end
 end
