@@ -5,61 +5,21 @@ AutoFollowSavedVariables = AutoFollowSavedVariables or {}
 AutoFollow.savedVars = AutoFollowSavedVariables
 AutoFollow.savedVars.log = {}
 local ptk = LibPixelControl
-local verbose = false -- true -- false
 local GetGameTimeMilliseconds = GetGameTimeMilliseconds
+local verbose = false -- true -- false
+
+local pi = math.pi
+local targetUnitTag, targetUnitName
 local ms_time = GetGameTimeMilliseconds()
 local function dmsg(txt)
-	if verbose then
+   if verbose then
       local str = (GetGameTimeMilliseconds() - ms_time) .. ") " .. txt
-		d(str)
-      --if AnyLogger then AnyLogger:LogAnyTxt("dmsg", str) end
-		ms_time = GetGameTimeMilliseconds()
-	end
+      d(str)
+      ms_time = GetGameTimeMilliseconds()
+   end
 end
 local IsGameCameraUIModeActive = IsGameCameraUIModeActive
 local IsCrouching = function() return (GetUnitStealthState("player") ~= STEALTH_STATE_NONE) end
-local function tapKey(key)
-	if not IsGameCameraUIModeActive() then
-		dmsg("Tap "..key)
-		ptk.SetIndOnFor(key, 20)
-	end
-end
-
-local MountedState = { [MOUNTED_STATE_MOUNT_PASSENGER] = "MOUNTED_STATE_MOUNT_PASSENGER", [MOUNTED_STATE_MOUNT_RIDER] = "MOUNTED_STATE_MOUNT_RIDER", [MOUNTED_STATE_NOT_MOUNTED] = "MOUNTED_STATE_NOT_MOUNTED",}
-
-local function HollowCopy(o, listFunc, lvl)
-   local depth = (lvl or 8) - 1
-   if depth <= 0 then return tostring(o) end -- depth exceeded
-   if type(o) == 'function' then
-      return "function"
-   elseif type(o) == 'table' then
-      local r = {}
-      if listFunc==nil or listFunc==true then
-         for k,v in pairs(o) do
-            r[k] = HollowCopy(v, listFunc, depth)
-         end
-      else
-         for k,v in pairs(o) do
-            if type(v) ~= 'function' then r[k] = HollowCopy(v, listFunc, depth) end
-         end
-      end
-      return r
-   elseif type(o) == 'userdata' then
-      local r = {}
-      if listFunc==nil or listFunc==true then
-         for k,v in pairs(getmetatable(o).__index) do
-            r[k] = HollowCopy(v, listFunc, depth)
-         end
-      else
-         for k,v in pairs(getmetatable(o).__index) do
-            if type(v) ~= 'function' then r[k] = HollowCopy(v, listFunc, depth) end
-         end
-      end
-      return r
-   else
-      return tostring(o)
-   end
-end
 local function dump(o)
    if type(o) == "table" then
       local s = "{"
@@ -75,22 +35,6 @@ local function dump(o)
    end
 end
 local function ternary(cond, ifTrue, ifFalse) if cond then return ifTrue else return ifFalse end end
-local function LogAnyArr(title, args)
-   local strArgs = GetGameTimeMilliseconds() .. ";" .. title
-   for i,v in ipairs(args) do
-      strArgs = strArgs .. ";" .. tostring(v)
-   end
-   if AHKRapidFire.savedVars.logAny == nil then AHKRapidFire.savedVars.logAny = {} end
-   table.insert(AHKRapidFire.savedVars.logAny, strArgs)
-end
-local function LogAnyTxt(title, ...)
-   LogAnyArr(title, {...})
-end
-local function LogAnyEvent(eventid, ...)
-   local args = {...}
-   LogAnyArr(tostring(EventsForLogging[eventid]), args)
-end
-
 local function GetUnitDetails(unitTag)
    local unit = nil
    if DoesUnitExist(unitTag) then
@@ -202,38 +146,10 @@ local function GetUnitDetails(unitTag)
 end
 
 function AutoFollow:Initialize()
-	ZO_CreateStringId("SI_BINDING_NAME_".."FOLLOW_LEADER", "Follow Leader")
-	ZO_CreateStringId("SI_BINDING_NAME_".."FOLLOW_TEST", "Follow Test")
-	--AutoFollow.savedVars = ZO_SavedVars:NewAccountWide("AutoFollowSavedVariables", 1, nil, {})
-   --ClearTable(AutoFollow.savedVars)
-
-	SLASH_COMMANDS["/ptktest"] = function()
-		-- 1-24
-		zo_callLater(function() ptk.SetIndOnFor(ptk.VK_SHIFT, 50) end, 0) -- 5
-		-- 25-48
-		zo_callLater(function() ptk.SetIndOnFor(ptk.VK_A, 50) end, 100) -- 36
-		-- 49-72
-		zo_callLater(function() ptk.SetIndOnFor(ptk.VK_NUMPAD0, 50) end, 200) -- 65
-		-- 73-96
-		zo_callLater(function() ptk.SetIndOnFor(ptk.VK_DIVIDE, 50) end, 300) -- 81
-		-- 97-120
-		zo_callLater(function() ptk.SetIndOnFor(ptk.VK_INSERT, 50) end, 400) -- 102
-		-- 121-144
-		zo_callLater(function() ptk.SetIndOnFor(ptk.VM_MOVE_RIGHT, 50) end, 500) -- 121
-	end
-	SLASH_COMMANDS["/ptkbool"] = function()
-		d(dump(LibPixelControl.GetBools()))
-		d(ptk.PX_CONST_1)
-		d(ptk.PX_CONST_2)
-		d(ptk.PX_CONST_3)
-		d(ptk.PX_CONST_4)
-		d(ptk.PX_CONST_5)
-		d(ptk.PX_CONST_6)
-	end
+   ZO_CreateStringId("SI_BINDING_NAME_".."FOLLOW_LEADER", "Follow Leader")
+   ZO_CreateStringId("SI_BINDING_NAME_".."FOLLOW_TEST", "Follow Test")
+   --AutoFollow.savedVars = ZO_SavedVars:NewAccountWide("AutoFollowSavedVariables", 1, nil, {})
 end
-
-local pi = math.pi
-local targetUnitTag, targetUnitName
 
 local function GetGroupLeaderUnitTag()
    for i=1,GROUP_SIZE_MAX do
@@ -284,8 +200,8 @@ local function MoveToTarget()
       targetX = 0.59061920642853
       targetY = 0.39418733119965
    end
-	local playerX, playerY, playerHeading = GetMapPlayerPosition("player") -- * GetMapPlayerPosition(*string* _unitTag_) ** _Returns:_ *number* _normalizedX_, *number* _normalizedZ_, *number* _heading_, *bool* _isShownInCurrentMap_
-	local playerCamHeading = GetPlayerCameraHeading() -- math.abs(playerHeading - math.pi * 2) + GetPlayerCameraHeading()
+   local playerX, playerY, playerHeading = GetMapPlayerPosition("player") -- * GetMapPlayerPosition(*string* _unitTag_) ** _Returns:_ *number* _normalizedX_, *number* _normalizedZ_, *number* _heading_, *bool* _isShownInCurrentMap_
+   local playerCamHeading = GetPlayerCameraHeading() -- math.abs(playerHeading - math.pi * 2) + GetPlayerCameraHeading()
    local indLookLeft, indLookQuickLeft, indLookRight, indLookQuickRight, indMoveForward, indRunForward, indUseDoor
    dmsg("---------------")
    local targetDirection, targetDistance = GetDirAndDist(playerX, playerY, targetX, targetY)
@@ -336,7 +252,7 @@ local function MoveToTarget()
             end
          end
       end
-	end
+   end
 
    if indLookLeft then ptk.SetIndOn(ptk.VM_MOVE_LEFT) else ptk.SetIndOff(ptk.VM_MOVE_LEFT) end
    if indLookQuickLeft then ptk.SetIndOn(ptk.VM_MOVE_10_LEFT) else ptk.SetIndOff(ptk.VM_MOVE_10_LEFT) end
@@ -351,7 +267,7 @@ end
 function AutoFollow:FollowLeaderStart()
    if targetUnitTag == nil then
       targetUnitTag = GetGroupLeaderUnitTag()
-      if targetUnitTag == nil then targetUnitTag = "test" end -- REMOVE
+      if targetUnitTag == nil then targetUnitTag = "test" targetUnitName = "test" end -- REMOVE
       if targetUnitTag ~= nil then
          targetUnitName = GetUnitName(targetUnitTag)
          d("Follow Unit ON - "..tostring(targetUnitName))
@@ -373,7 +289,7 @@ end
 -- Then we create an event handler function which will be called when the "addon loaded" event
 -- occurs. We'll use this to initialize our addon after all of its resources are fully loaded.
 function AutoFollow.OnAddOnLoaded(event, addonName) -- The event fires each time *any* addon loads - but we only care about when our own addon loads.
-	if addonName == ADDON_NAME then AutoFollow:Initialize() end
+   if addonName == ADDON_NAME then AutoFollow:Initialize() end
 end
 
 -- Finally, we'll register our event handler function to be called when the proper event occurs.
@@ -381,3 +297,170 @@ EVENT_MANAGER:RegisterForEvent(ADDON_NAME, EVENT_ADD_ON_LOADED, AutoFollow.OnAdd
 
 
 -----------------------------------------
+local thingsWhichAreNotADoor = {["Merris"] = true, ["Elric"] = true,}
+
+local settingMouseFollowAlways = false
+local settingDistScanForDoor = .001
+local settingDistHoldFromTarget = .02
+local scanDirection = nil
+local targetIsCrouching = nil
+local playerIsCrouching = nil
+local targetIsMounted = nil
+
+local msLastUseDoor = 0
+local msLastMoveForward = 0
+local msLastCheckCrouch = 0
+local msLastCheckMount = 0
+local function MoveToTargetAlt()
+   if targetUnitTag == nil then
+      ClearNavigation()
+      return nil
+   end
+   local now = GetGameTimeMilliseconds()
+   local indLookLeft, indLookQuickLeft, indLookRight, indLookQuickRight, indMoveForward, indRunForward
+   local indUseDoor, indToggleCrouch, indToggleMount
+   if not IsGameCameraUIModeActive() then
+      local playerX, playerY, playerHeading = GetMapPlayerPosition("player") -- * GetMapPlayerPosition(*string* _unitTag_) ** _Returns:_ *number* _normalizedX_, *number* _normalizedZ_, *number* _heading_, *bool* _isShownInCurrentMap_
+      local targetX, targetY, targetHeading, targetOnSamePlayerMap = GetMapPlayerPosition(targetUnitTag) -- * GetMapPlayerPosition(*string* _unitTag_) ** _Returns:_ *number* _normalizedX_, *number* _normalizedZ_, *number* _heading_, *bool* _isShownInCurrentMap_
+      --local targetChangedMaps = IsUnitWorldMapPositionBreadcrumbed(targetUnitTag) -- * IsUnitWorldMapPositionBreadcrumbed(*string* _unitTag_) ** _Returns:_ *bool* _isBreadcrumb_
+
+      if targetHeading ~= 0 then -- hacky way to consider if target is a player
+         if now > msLastCheckCrouch + 500 then
+            local targetWasCrouching = targetIsCrouching
+            targetIsCrouching = (GetUnitStealthState(targetUnitTag) ~= STEALTH_STATE_NONE)
+            playerIsCrouching = (GetUnitStealthState("player") ~= STEALTH_STATE_NONE)
+            if targetWasCrouching and not targetIsCrouching and playerIsCrouching then indToggleCrouch = true end
+            if targetIsCrouching and not playerIsCrouching then indToggleCrouch = true playerIsCrouching = true end
+            msLastCheckCrouch = now
+         end
+         if now > msLastCheckMount + 1000 then
+            local targetMountedState = GetTargetMountedStateInfo(targetUnitName) -- * GetTargetMountedStateInfo(*string* _characterOrDisplayName_) ** _Returns:_ *[MountedState|#MountedState]* _mountedState_, *bool* _isRidingGroupMount_, *bool* _hasFreePassengerSlot_
+            targetIsMounted = (targetMountedState==PLAYER_MOUNTED_STATE_MOUNT_RIDER or targetMountedState==MOUNTED_STATE_MOUNT_RIDER)
+            playerIsMounted = IsMounted() -- * IsMounted() ** _Returns:_ *bool* _mounted_
+            if targetIsMounted and not playerIsMounted then indToggleMount = true end
+            msLastCheckMount = now
+         end
+      end
+
+      local playerCamHeading = GetPlayerCameraHeading()
+      local targetDirection, targetDistance = GetDirAndDist(playerX, playerY, targetX, targetY)
+      local turnDirection = (((pi+(playerCamHeading-targetDirection))%(pi*2))-pi)
+      local turnPower = math.abs(turnDirection)
+
+      local indLookToTarget, indScanForDoor, indMoveToTarget
+      if targetOnSamePlayerMap then
+         if settingMouseFollowAlways then
+            indLookToTarget = true
+         elseif targetDistance > settingDistHoldFromTarget
+            indLookToTarget = true
+            indMoveToTarget = true
+         end
+      else
+         if targetDistance > settingDistScanForDoor then
+            indLookToTarget = true
+         else
+            indScanForDoor = true
+         end
+      end
+      if indScanForDoor then
+         local curAction, curInteractableName, curInteractBlocked, curIsOwned, curAdditionalInfo, curContextualInfo, curContextualLink, curIsCriminalInteract = GetGameCameraInteractableActionInfo()
+         if curAction ~= nil and curInteractableName ~= nil and not thingsWhichAreNotADoor[curInteractableName] then
+            indUseDoor = true
+            scanDirection = nil
+         else
+            if turnPower > pi/8 then scanDirection = ternary((turnDirection < 0), "left", "right") end
+            if scanDirection == "left" then indLookQuickLeft = true else indLookQuickRight = true end
+         end
+      elseif indLookToTarget then
+         if turnPower < 0.1 then
+            if turnDirection < 0 then indLookLeft = true else indLookRight = true end
+         else
+            if turnDirection < 0 then indLookQuickLeft = true else indLookQuickRight = true end
+         end
+      end
+      if indMoveToTarget then
+         if turnPower < pi/4 then
+            indMoveForward = true
+            --if targetDistance > 0.03 and turnPower < pi/8 then indRunForward = true end
+            if not playerIsCrouching and targetDistance > turnPower and turnPower < pi/8 then indRunForward = true end
+            -- * GetAdvancedStatValue(*[AdvancedStatDisplayType|#AdvancedStatDisplayType]* _statType_) ** _Returns:_ *[AdvancedStatDisplayFormat|#AdvancedStatDisplayFormat]* _displayFormat_, *integer:nilable* _flatValue_, *number:nilable* _percentValue_
+            -- ADVANCED_STAT_DISPLAY_TYPE_SPRINT_SPEED
+            --if GetAdvancedStatValue(ADVANCED_STAT_DISPLAY_TYPE_SPRINT_SPEED) then end
+         end
+      end
+   end
+   if indLookLeft then ptk.SetIndOn(ptk.VM_MOVE_LEFT) else ptk.SetIndOff(ptk.VM_MOVE_LEFT) end
+   if indLookQuickLeft then ptk.SetIndOn(ptk.VM_MOVE_10_LEFT) else ptk.SetIndOff(ptk.VM_MOVE_10_LEFT) end
+   if indLookRight then ptk.SetIndOn(ptk.VM_MOVE_RIGHT) else ptk.SetIndOff(ptk.VM_MOVE_RIGHT) end
+   if indLookQuickRight then ptk.SetIndOn(ptk.VM_MOVE_10_RIGHT) else ptk.SetIndOff(ptk.VM_MOVE_10_RIGHT) end
+   if indMoveForward and now > msLastMoveForward + 1000 then ptk.SetIndOn(ptk.VK_W) msLastMoveForward = now else ptk.SetIndOff(ptk.VK_W) end
+   if indRunForward then ptk.SetIndOn(ptk.VK_SHIFT) else ptk.SetIndOff(ptk.VK_SHIFT) end
+   if indUseDoor and now > msLastUseDoor + 300 then ptk.SetIndOnFor(ptk.VK_E, 20) msLastUseDoor = now end
+   if indToggleCrouch then ptk.SetIndOnFor(ptk.VK_CONTROL, 20) end
+   if indToggleMount then ptk.SetIndOnFor(ptk.VK_H, 20) end
+   --if indToggleMount then ptk.UseAction(ptk.GetAction("TOGGLE_MOUNT")) end
+
+--* GetActionBindingInfo(*luaindex* _layerIndex_, *luaindex* _categoryIndex_, *luaindex* _actionIndex_, *luaindex* _bindingIndex_) ** _Returns:_ *[KeyCode|#KeyCode]* _keyCode_, *[KeyCode|#KeyCode]* _mod1_, *[KeyCode|#KeyCode]* _mod2_, *[KeyCode|#KeyCode]* _mod3_, *[KeyCode|#KeyCode]* _mod4_
+
+end
+
+local tESOtoPixelBinary = {[KEY_0] = VK_0,}
+local tBindsByActionName = {}
+function KeybindsSave()
+   local logTextArr = {}
+   local saveTable = {}
+   saveTable.BindTable = {}
+   local layers = GetNumActionLayers()
+   local GetActionLayerCategoryInfo = GetActionLayerCategoryInfo
+   local GetActionInfo = GetActionInfo
+   local GetActionBindingInfo = GetActionBindingInfo
+   for layer = 1, layers, 1 do
+      layerName,numcat = GetActionLayerInfo(layer)
+      -- d(layer..":"..name..":  " ..numcat)
+      saveTable.BindTable[layer] = {}
+      saveTable.BindTable[layer].Name = layerName
+      saveTable.BindTable[layer].LayerNumber = layer
+      saveTable.BindTable[layer].NumberOfCategories= numcat
+      saveTable.BindTable[layer].Category = {}
+      for cat = 1, numcat, 1 do
+         catName, numactions = GetActionLayerCategoryInfo(layer,cat)
+         -- d(name..":"..catName..":  "..numactions)
+         saveTable.BindTable[layer].Category[cat] = {}
+         saveTable.BindTable[layer].Category[cat].Name = catName
+         saveTable.BindTable[layer].Category[cat].NumActions = numactions
+         saveTable.BindTable[layer].Category[cat].Actions = {}
+         for action = 1, numactions, 1 do
+            actionName, isRebindable, isHidden = GetActionInfo(layer,cat,action)
+            -- d(actionName..":  "..tostring(isRebindable).." | "..tostring(isHidden))
+            saveTable.BindTable[layer].Category[cat].Actions[action] = {}
+            saveTable.BindTable[layer].Category[cat].Actions[action].Name = actionName
+            saveTable.BindTable[layer].Category[cat].Actions[action].isRebindable = isRebindable
+            saveTable.BindTable[layer].Category[cat].Actions[action].isHidden = isHidden
+            saveTable.BindTable[layer].Category[cat].Actions[action].Keys = {}
+            for index = 1, 4 do
+               keycode, keymod1, keymod2, keymod3, keymod4 = GetActionBindingInfo(layer,cat,action,index)
+               saveTable.BindTable[layer].Category[cat].Actions[action].Keys[index] = {}
+               saveTable.BindTable[layer].Category[cat].Actions[action].Keys[index].KeyCode = keycode
+               saveTable.BindTable[layer].Category[cat].Actions[action].Keys[index].KeyMod1 = keymod1
+               saveTable.BindTable[layer].Category[cat].Actions[action].Keys[index].KeyMod2 = keymod2
+               saveTable.BindTable[layer].Category[cat].Actions[action].Keys[index].KeyMod3 = keymod3
+               saveTable.BindTable[layer].Category[cat].Actions[action].Keys[index].KeyMod4 = keymod4
+               --logTextArr[tostring(layer)..","..tostring(cat)..","..tostring(action)..","..tostring(index)]
+               --    = tostring(keycode)..","..tostring(keymod1)..","..tostring(keymod2)..","..tostring(keymod3)..","..tostring(keymod4)
+               --      ..","..tostring(layerName)..","..tostring(catName)..","..tostring(actionName)..","..tostring(isRebindable)..","..tostring(isHidden)
+               local arrIdx = "CallSecureProtected(BindKeyToAction, "..tostring(layer)..","..tostring(cat)..","..tostring(action)..","..tostring(index)..", "..tostring(keycode)..","..tostring(keymod1)..","..tostring(keymod2)..","..tostring(keymod3)..","..tostring(keymod4)..")"
+               if not isRebindable then arrIdx = "--"..arrIdx end
+               logTextArr[arrIdx]
+                  = tostring(layer)..","..tostring(cat)..","..tostring(action)..","..tostring(index)
+                     ..","..tostring(keycode)..","..tostring(keymod1)..","..tostring(keymod2)..","..tostring(keymod3)..","..tostring(keymod4)
+                     ..","..tostring(layerName)..","..tostring(catName)..","..tostring(actionName)..","..tostring(isRebindable)..","..tostring(isHidden)
+            end
+         end
+      end
+   end
+   --logTextArr["layer"..",".."cat"..",".."action"..",".."index"]
+   --    = "keycode"..",".."keymod1"..",".."keymod2"..",".."keymod3"..",".."keymod4"
+   --      ..",".."layerName"..",".."catName"..",".."actionName"..",".."isRebindable"..",".."isHidden"
+   --CallSecureProtected("BindKeyToAction", layer, cat, action, index, keycode, keymod1, keymod2, keymod3, keymod4) -- LayerIndex,CategoryIndex,ActionIndex,BindIndex(1-4),KeyCode,Modx4
+   --AHKVacuum.savedVars.logText = logTextArr
+end
