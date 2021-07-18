@@ -4,7 +4,9 @@ local ADDON_NAME = "AutoFollow"
 local ptk = LibPixelControl
 local GetGameTimeMilliseconds = GetGameTimeMilliseconds
 local verbose = true -- true -- false
-
+local settingMouseFollowAlways = true -- true false
+local settingDistScanForDoor = .001
+local settingDistHoldFromTarget = .02
 local pi = math.pi
 local targetUnitTag, targetUnitName
 local ms_time = GetGameTimeMilliseconds()
@@ -17,6 +19,20 @@ local function dmsg(txt)
 end
 local IsGameCameraUIModeActive = IsGameCameraUIModeActive
 local IsCrouching = function() return (GetUnitStealthState("player") ~= STEALTH_STATE_NONE) end
+local thingsWhichAreNotADoor = {["Mirri Elendis"] = true, ["Bastian Hallix"] = true,}
+local actionsWhichOpenADoor = {["Open"] = true, ["Use"] = true,}
+local scanDirection = nil
+local targetIsCrouching = nil
+local playerIsCrouching = nil
+local targetIsMounted = nil
+local targetX, targetY, targetHeading, targetOnSamePlayerMap
+
+local msLastSubZoneChanged = 0
+local msLastUseDoor = 0
+local msLastMoveForward = 0
+local indHoldingForward = false
+local msLastCheckCrouch = 0
+local msLastCheckMount = 0
 local function dump(o)
    if type(o) == "table" then
       local s = "{"
@@ -142,6 +158,9 @@ local function GetUnitDetails(unitTag)
 end
 
 
+local function SubZoneChanged()
+   msLastSubZoneChanged = GetGameTimeMilliseconds()
+end
 local function GroupTrack()
    --*integer* _zoneId_, *integer* _worldX_, *integer* _worldY_, *integer* _worldZ_
    --GetUnitRawWorldPosition
@@ -159,6 +178,7 @@ function AutoFollow:Initialize()
    AutoFollowSavedVariables = AutoFollowSavedVariables or {}
    AutoFollow.savedVars = AutoFollowSavedVariables
    AutoFollowSavedVariables.log = {}
+   EVENT_MANAGER:RegisterForEvent(ADDON_NAME.."SubZoneChanged", EVENT_CURRENT_SUBZONE_LIST_CHANGED, SubZoneChanged)
 
    EVENT_MANAGER:RegisterForUpdate(ADDON_NAME.."GroupTrack", 10, GroupTrack)
 
@@ -189,22 +209,6 @@ local function GetDirAndDist(fromX, fromY, toX, toY)
    return dir, zo_sqrt((diffX * diffX) + (diffY * diffY))
 end
 
-local thingsWhichAreNotADoor = {["Mirri Elendis"] = true, ["Bastian Hallix"] = true,}
-local actionsWhichOpenADoor = {["Open"] = true, ["Use"] = true,}
-
-local settingMouseFollowAlways = false
-local settingDistScanForDoor = .001
-local settingDistHoldFromTarget = .02
-local scanDirection = nil
-local targetIsCrouching = nil
-local playerIsCrouching = nil
-local targetIsMounted = nil
-local targetX, targetY, targetHeading, targetOnSamePlayerMap
-
-local msLastUseDoor = 0
-local msLastMoveForward = 0
-local msLastCheckCrouch = 0
-local msLastCheckMount = 0
 local function ClearNavigation()
    dmsg("ClearNavigation")
    targetUnitTag = nil
@@ -214,7 +218,7 @@ local function ClearNavigation()
    ptk.SetIndOff(ptk.VM_MOVE_10_LEFT)
    ptk.SetIndOff(ptk.VM_MOVE_RIGHT)
    ptk.SetIndOff(ptk.VM_MOVE_10_RIGHT)
-   ptk.SetIndOff(ptk.VK_W)
+   ptk.SetIndOff(ptk.VK_W) indHoldingForward = false
    ptk.SetIndOff(ptk.VK_SHIFT)
 end
 local function MoveToTarget()
@@ -224,14 +228,15 @@ local function MoveToTarget()
    local now = GetGameTimeMilliseconds()
    local indLookLeft, indLookQuickLeft, indLookRight, indLookQuickRight, indMoveForward, indRunForward
    local indUseDoor, indToggleCrouch, indToggleMount
-   if DoesGameHaveFocus() and not IsGameCameraUIModeActive() then
+   if DoesGameHaveFocus() and not IsGameCameraUIModeActive() and now > msLastSubZoneChanged + 7000 then
       local playerX, playerY, playerHeading = GetMapPlayerPosition("player") -- * GetMapPlayerPosition(*string* _unitTag_) ** _Returns:_ *number* _normalizedX_, *number* _normalizedZ_, *number* _heading_, *bool* _isShownInCurrentMap_
       local tagX, tagY, tagHeading, tagOnSamePlayerMap = GetMapPlayerPosition(targetUnitTag) -- * GetMapPlayerPosition(*string* _unitTag_) ** _Returns:_ *number* _normalizedX_, *number* _normalizedZ_, *number* _heading_, *bool* _isShownInCurrentMap_
-      local tagIsBreadcrumb = IsUnitWorldMapPositionBreadcrumbed(targetUnitTag) -- * IsUnitWorldMapPositionBreadcrumbed(*string* _unitTag_) ** _Returns:_ *bool* _isBreadcrumb_
-      dmsg(" ".."Crumb:"..tostring(tagIsBreadcrumb))
-      targetOnSamePlayerMap = tagOnSamePlayerMap
+      local tagInSupportRange = IsUnitInGroupSupportRange(targetUnitTag) -- * IsUnitInGroupSupportRange(*string* _unitTag_) ** _Returns:_ *bool* _result_
+
+      --dmsg(" ".."Range:"..tostring(IsUnitInGroupSupportRange(targetUnitTag))) -- * IsUnitInGroupSupportRange(*string* _unitTag_) ** _Returns:_ *bool* _result_
+      --dmsg(" ".."Crumb:"..tostring(IsUnitWorldMapPositionBreadcrumbed(targetUnitTag))) -- * IsUnitWorldMapPositionBreadcrumbed(*string* _unitTag_) ** _Returns:_ *bool* _isBreadcrumb_
+      targetOnSamePlayerMap = tagInSupportRange
       if targetOnSamePlayerMap then targetX, targetY = tagX, tagY end
-      --local targetChangedMaps = IsUnitWorldMapPositionBreadcrumbed(targetUnitTag) -- * IsUnitWorldMapPositionBreadcrumbed(*string* _unitTag_) ** _Returns:_ *bool* _isBreadcrumb_
 
       if now > msLastCheckCrouch + 500 then
          local targetWasCrouching = targetIsCrouching
@@ -256,12 +261,8 @@ local function MoveToTarget()
 
       local indLookToTarget, indScanForDoor, indMoveToTarget
       if targetOnSamePlayerMap then
-         if settingMouseFollowAlways then
-            indLookToTarget = true
-         elseif targetDistance > settingDistHoldFromTarget then
-            indLookToTarget = true
-            indMoveToTarget = true
-         end
+         indLookToTarget = true
+         if targetDistance > settingDistHoldFromTarget then indMoveToTarget = true end
       else
          if targetDistance > settingDistScanForDoor then
             indLookToTarget = true
@@ -313,10 +314,10 @@ local function MoveToTarget()
    if indLookQuickLeft then ptk.SetIndOn(ptk.VM_MOVE_10_LEFT) else ptk.SetIndOff(ptk.VM_MOVE_10_LEFT) end
    if indLookRight then ptk.SetIndOn(ptk.VM_MOVE_RIGHT) else ptk.SetIndOff(ptk.VM_MOVE_RIGHT) end
    if indLookQuickRight then ptk.SetIndOn(ptk.VM_MOVE_10_RIGHT) else ptk.SetIndOff(ptk.VM_MOVE_10_RIGHT) end
-   --if indMoveForward and now > msLastMoveForward + 1000 then ptk.SetIndOn(ptk.VK_W) msLastMoveForward = now else ptk.SetIndOff(ptk.VK_W) end
-   if indMoveForward then ptk.SetIndOn(ptk.VK_W) else ptk.SetIndOff(ptk.VK_W) end
+   if indMoveForward and (indHoldingForward or now > msLastMoveForward + 1000) then ptk.SetIndOn(ptk.VK_W) indHoldingForward = true msLastMoveForward = now else ptk.SetIndOff(ptk.VK_W) indHoldingForward = false end
+   --if indMoveForward then ptk.SetIndOn(ptk.VK_W) else ptk.SetIndOff(ptk.VK_W) end
    if indRunForward then ptk.SetIndOn(ptk.VK_SHIFT) else ptk.SetIndOff(ptk.VK_SHIFT) end
-   if indUseDoor and now > msLastUseDoor + 300 then ptk.SetIndOnFor(ptk.VK_E, 20) msLastUseDoor = now end
+   if indUseDoor and now > msLastUseDoor + 500 then ptk.SetIndOnFor(ptk.VK_E, 20) msLastUseDoor = now end
    if indToggleCrouch then ptk.SetIndOnFor(ptk.VK_CONTROL, 20) end
    if indToggleMount then ptk.SetIndOnFor(ptk.VK_H, 20) end
    --if indToggleMount then ptk.UseAction(ptk.GetAction("TOGGLE_MOUNT")) end
@@ -328,18 +329,25 @@ function AutoFollow:FollowLeaderStart()
       targetUnitTag = tagReticle or tagLeader
       if AreUnitsEqual(targetUnitTag, "player") then targetUnitTag = nil end
 
-
-      for i=1,GROUP_SIZE_MAX do
-         local tagTemp = GetGroupUnitTagByIndex(i)
-         dmsg(tostring(i)..":"..tostring(tagTemp))
-      end
+      --for i=1,GROUP_SIZE_MAX do
+      --   local tagTemp = GetGroupUnitTagByIndex(i)
+      --   dmsg(tostring(i)..":"..tostring(tagTemp))
+      --end
 
       dmsg("tagLeader:"..tostring(tagLeader))
       dmsg("tagReticle:"..tostring(tagReticle))
+      dmsg("targetUnitTag:"..tostring(targetUnitTag))
 
       targetX, targetY, targetHeading, targetOnSamePlayerMap = GetMapPlayerPosition(targetUnitTag) -- * GetMapPlayerPosition(*string* _unitTag_) ** _Returns:_ *number* _normalizedX_, *number* _normalizedZ_, *number* _heading_, *bool* _isShownInCurrentMap_
-      local tagIsBreadcrumb = IsUnitWorldMapPositionBreadcrumbed(targetUnitTag) -- * IsUnitWorldMapPositionBreadcrumbed(*string* _unitTag_) ** _Returns:_ *bool* _isBreadcrumb_
-      dmsg("tag:"..tostring(targetUnitTag).." ".."X:"..tostring(targetX).." ".."Y:"..tostring(targetY).." ".."SameMap:"..tostring(targetOnSamePlayerMap).." ".."Crumb:"..tostring(tagIsBreadcrumb))
+      targetOnSamePlayerMap = IsUnitInGroupSupportRange(targetUnitTag) -- * IsUnitInGroupSupportRange(*string* _unitTag_) ** _Returns:_ *bool* _result_
+
+      dmsg("tag:"..tostring(targetUnitTag).." ".."X:"..tostring(targetX).." ".."Y:"..tostring(targetY).." ".."SameMap:"..tostring(targetOnSamePlayerMap))
+      dmsg(" ".."Range:"..tostring(IsUnitInGroupSupportRange(targetUnitTag))) -- * IsUnitInGroupSupportRange(*string* _unitTag_) ** _Returns:_ *bool* _result_
+      dmsg(" ".."Crumb:"..tostring(IsUnitWorldMapPositionBreadcrumbed(targetUnitTag))) -- * IsUnitWorldMapPositionBreadcrumbed(*string* _unitTag_) ** _Returns:_ *bool* _isBreadcrumb_
+
+      local playerX, playerY, playerHeading = GetMapPlayerPosition("player") -- * GetMapPlayerPosition(*string* _unitTag_) ** _Returns:_ *number* _normalizedX_, *number* _normalizedZ_, *number* _heading_, *bool* _isShownInCurrentMap_
+      local targetDirection, targetDistance = GetDirAndDist(playerX, playerY, targetX, targetY)
+      dmsg("tDist:"..tostring(targetDistance))
 
       if not targetOnSamePlayerMap then targetUnitTag = nil end
 
@@ -360,8 +368,9 @@ end
 function AutoFollow:FollowLeaderStop() end
 function AutoFollow:SingleCheck()
    AutoFollow.FollowLeaderStart()
-   AutoFollowSavedVariables.log.player = GetUnitDetails("player")
-   AutoFollowSavedVariables.log.target = GetUnitDetails(targetUnitTag)
+   --d("SubzoneName:"..tostring(GetPlayerActiveSubzoneName()))
+   AutoFollowSavedVariables.log.group1 = GetUnitDetails("group1")
+   AutoFollowSavedVariables.log.group2 = GetUnitDetails("group2")
    ClearNavigation()
 end
 
