@@ -8,6 +8,7 @@ local settingMouseFollowAlways = true -- true false
 local settingDistScanForDoor = .001
 local settingDistHoldFromTarget = .02
 local pi = math.pi
+local sqrt = math.sqrt -- zo_sqrt math.sqrt
 local targetUnitTag, targetUnitName
 local ms_time = GetGameTimeMilliseconds()
 local function dmsg(txt)
@@ -18,18 +19,18 @@ local function dmsg(txt)
    end
 end
 local IsGameCameraUIModeActive = IsGameCameraUIModeActive
-local IsCrouching = function() return (GetUnitStealthState("player") ~= STEALTH_STATE_NONE) end
 local thingsWhichAreNotADoor = {["Mirri Elendis"] = true, ["Bastian Hallix"] = true,}
-local actionsWhichOpenADoor = {["Open"] = true, ["Use"] = true,}
+local playerX, playerY, playerHeading
+local targetX, targetY, targetHeading, targetOnSamePlayerMap
 local scanDirection = nil
 local targetIsCrouching = nil
 local playerIsCrouching = nil
 local targetIsMounted = nil
-local targetX, targetY, targetHeading, targetOnSamePlayerMap
 
+local indMovementPaused = false
 local msLastSubZoneChanged = 0
 local msLastUseDoor = 0
-local msLastMoveForward = 0
+local msLastReleaseForward = 0
 local indHoldingForward = false
 local msLastCheckCrouch = 0
 local msLastCheckMount = 0
@@ -157,6 +158,45 @@ local function GetUnitDetails(unitTag)
    return unit
 end
 
+local function GetDirAndDist(fromX, fromY, toX, toY)
+   local diffX = (fromX-toX)
+   local diffY = (fromY-toY)
+   local dir = math.atan(diffX/diffY)
+   if diffY < 0 then dir = dir + pi end
+   return dir, sqrt((diffX * diffX) + (diffY * diffY))
+end
+
+local histPlayerMovement = {}
+local seqPlayerMovement = 0
+local zoneWalkRate = 0
+local function TrackPlayerMovement(ms,playerX,playerY,indHoldingForward,playerIsCrouching,playerIsMounted)
+   --local entry = {ms=ms,playerX=playerX,playerY=playerY,indHoldingForward=indHoldingForward,playerIsCrouching=playerIsCrouching,playerIsMounted=playerIsMounted,}
+   --local idx = seqPlayerMovement%10
+   --histPlayerMovement[idx] = entry
+   --seqPlayerMovement = seqPlayerMovement + 1
+   table.insert(histPlayerMovement, {ms=ms,playerX=playerX,playerY=playerY,indHoldingForward=indHoldingForward,playerIsCrouching=playerIsCrouching,playerIsMounted=playerIsMounted,})
+   local recentPlayerMovement = {}
+   local prv
+   local cntHist = 0
+   local cntWalkRate, smWalkRate = 0, 0
+   for k,cur in ipairs(o) do
+      if prv ~= nil then
+         table.insert(recentPlayerMovement, cur)
+         cntHist = cntHist + 1
+         if cur.playerX ~= prv.playerX or cur.playerY ~= prv.playerY then
+            if prv.indHoldingForward and not prv.playerIsCrouching and not prv.playerIsMounted then
+               local dist = sqrt(((cur.playerX - prv.playerX) * (cur.playerX - prv.playerX)) + ((cur.playerY - prv.playerY) * (cur.playerY - prv.playerY)))
+               local dur = cur.ms - prv.ms
+               cntWalkRate = cntWalkRate + 1
+               smWalkRate = smWalkRate + (dist/dur)
+            end
+         end
+      end
+      prv = cur
+   end
+   if cntWalkRate == cntHist then zoneWalkRate = (smWalkRate/cntWalkRate) end
+   if cntHist > 10 then histPlayerMovement = recentPlayerMovement end
+end
 
 local function SubZoneChanged()
    msLastSubZoneChanged = GetGameTimeMilliseconds()
@@ -197,17 +237,6 @@ local function GetGroupLeaderUnitTag()
    end
    return tagLeader, tagReticle
 end
-local function GetDirAndDist(fromX, fromY, toX, toY)
-   local diffX = (fromX-toX)
-   local diffY = (fromY-toY)
-   local dir
-   if diffY > 0 then
-      dir = math.atan(diffX/diffY)
-   else
-      dir = math.atan(diffX/diffY) + pi
-   end
-   return dir, zo_sqrt((diffX * diffX) + (diffY * diffY))
-end
 
 local function ClearNavigation()
    dmsg("ClearNavigation")
@@ -228,8 +257,8 @@ local function MoveToTarget()
    local now = GetGameTimeMilliseconds()
    local indLookLeft, indLookQuickLeft, indLookRight, indLookQuickRight, indMoveForward, indRunForward
    local indUseDoor, indToggleCrouch, indToggleMount
-   if DoesGameHaveFocus() and not IsGameCameraUIModeActive() and now > msLastSubZoneChanged + 7000 then
-      local playerX, playerY, playerHeading = GetMapPlayerPosition("player") -- * GetMapPlayerPosition(*string* _unitTag_) ** _Returns:_ *number* _normalizedX_, *number* _normalizedZ_, *number* _heading_, *bool* _isShownInCurrentMap_
+   if indMovementPaused == false and DoesGameHaveFocus() and not IsGameCameraUIModeActive() and now > msLastSubZoneChanged + 7000 then
+      playerX, playerY, playerHeading = GetMapPlayerPosition("player") -- * GetMapPlayerPosition(*string* _unitTag_) ** _Returns:_ *number* _normalizedX_, *number* _normalizedZ_, *number* _heading_, *bool* _isShownInCurrentMap_
       local tagX, tagY, tagHeading, tagOnSamePlayerMap = GetMapPlayerPosition(targetUnitTag) -- * GetMapPlayerPosition(*string* _unitTag_) ** _Returns:_ *number* _normalizedX_, *number* _normalizedZ_, *number* _heading_, *bool* _isShownInCurrentMap_
       local tagInSupportRange = IsUnitInGroupSupportRange(targetUnitTag) -- * IsUnitInGroupSupportRange(*string* _unitTag_) ** _Returns:_ *bool* _result_
 
@@ -314,13 +343,13 @@ local function MoveToTarget()
    if indLookQuickLeft then ptk.SetIndOn(ptk.VM_MOVE_10_LEFT) else ptk.SetIndOff(ptk.VM_MOVE_10_LEFT) end
    if indLookRight then ptk.SetIndOn(ptk.VM_MOVE_RIGHT) else ptk.SetIndOff(ptk.VM_MOVE_RIGHT) end
    if indLookQuickRight then ptk.SetIndOn(ptk.VM_MOVE_10_RIGHT) else ptk.SetIndOff(ptk.VM_MOVE_10_RIGHT) end
-   if indMoveForward and (indHoldingForward or now > msLastMoveForward + 1000) then ptk.SetIndOn(ptk.VK_W) indHoldingForward = true msLastMoveForward = now else ptk.SetIndOff(ptk.VK_W) indHoldingForward = false end
-   --if indMoveForward then ptk.SetIndOn(ptk.VK_W) else ptk.SetIndOff(ptk.VK_W) end
+   if indMoveForward and now > msLastReleaseForward + 1000 then ptk.SetIndOn(ptk.VK_W) indHoldingForward = true else ptk.SetIndOff(ptk.VK_W) if indHoldingForward then msLastReleaseForward = now end indHoldingForward = false end
    if indRunForward then ptk.SetIndOn(ptk.VK_SHIFT) else ptk.SetIndOff(ptk.VK_SHIFT) end
    if indUseDoor and now > msLastUseDoor + 500 then ptk.SetIndOnFor(ptk.VK_E, 20) msLastUseDoor = now end
    if indToggleCrouch then ptk.SetIndOnFor(ptk.VK_CONTROL, 20) end
    if indToggleMount then ptk.SetIndOnFor(ptk.VK_H, 20) end
    --if indToggleMount then ptk.UseAction(ptk.GetAction("TOGGLE_MOUNT")) end
+   TrackPlayerMovement(now,playerX,playerY,indHoldingForward,playerIsCrouching,playerIsMounted)
 end
 
 function AutoFollow:FollowLeaderStart()
@@ -355,6 +384,7 @@ function AutoFollow:FollowLeaderStart()
          d("Leader could not be established")
       else
          targetUnitName = GetUnitName(targetUnitTag)
+         indMovementPaused = false
          d("Follow Unit ON - "..tostring(targetUnitName))
          --EVENT_MANAGER:UnregisterForUpdate(ADDON_NAME)
          EVENT_MANAGER:RegisterForUpdate(ADDON_NAME, 10, MoveToTarget)
