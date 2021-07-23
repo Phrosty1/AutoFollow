@@ -5,8 +5,8 @@ local ptk = LibPixelControl
 local GetGameTimeMilliseconds = GetGameTimeMilliseconds
 local verbose = true -- true -- false
 local settingMouseFollowAlways = true -- true false
-local settingDistScanForDoor = .001
-local settingDistHoldFromTarget = .02
+local settingDistScanForDoor = 5 -- was .001, now a multiple of speed
+local settingDistHoldFromTarget = 30 -- was .020, now a multiple of speed
 local pi = math.pi
 local sqrt = math.sqrt -- zo_sqrt math.sqrt
 local targetUnitTag, targetUnitName
@@ -71,35 +71,30 @@ local function GetUnitDetails(unitTag)
       local extras = {}
       unit.extras = extras
       table.insert(extras, "DoesUnitExist="..dump({DoesUnitExist(unitTag)})) -- * DoesUnitExist(*string* _unitTag_) ** _Returns:_ *bool* _exists_
+      table.insert(extras, "GetUnitType="..dump({GetUnitType(unitTag)})) -- * GetUnitType(*string* _unitTag_) ** _Returns:_ *integer* _type_
+
       table.insert(extras, "GetRawUnitName="..dump({GetRawUnitName(unitTag)})) -- * GetRawUnitName(*string* _unitTag_) ** _Returns:_ *string* _rawName_
       table.insert(extras, "GetUnitDisplayName="..dump({GetUnitDisplayName(unitTag)})) -- * GetUnitDisplayName(*string* _unitTag_) ** _Returns:_ *string* _displayName_
-      table.insert(extras, "GetUnitGender="..dump({GetUnitGender(unitTag)})) -- * GetUnitGender(*string* _unitTag_) ** _Returns:_ *[Gender|#Gender]* _gender_
-      table.insert(extras, "GetUnitClass="..dump({GetUnitClass(unitTag)})) -- * GetUnitClass(*string* _unitTag_) ** _Returns:_ *string* _className_
-      table.insert(extras, "GetUnitClassId="..dump({GetUnitClassId(unitTag)})) -- * GetUnitClassId(*string* _unitTag_) ** _Returns:_ *integer* _classId_
-      table.insert(extras, "GetUnitChampionPoints="..dump({GetUnitChampionPoints(unitTag)})) -- * GetUnitChampionPoints(*string* _unitTag_) ** _Returns:_ *integer* _championPoints_
-      table.insert(extras, "GetUnitEffectiveChampionPoints="..dump({GetUnitEffectiveChampionPoints(unitTag)})) -- * GetUnitEffectiveChampionPoints(*string* _unitTag_) ** _Returns:_ *integer* _championPoints_
-      table.insert(extras, "CanUnitGainChampionPoints="..dump({CanUnitGainChampionPoints(unitTag)})) -- * CanUnitGainChampionPoints(*string* _unitTag_) ** _Returns:_ *bool* _canGainChampionPoints_
-      table.insert(extras, "GetUnitEffectiveLevel="..dump({GetUnitEffectiveLevel(unitTag)})) -- * GetUnitEffectiveLevel(*string* _unitTag_) ** _Returns:_ *integer* _level_
+      table.insert(extras, "GetUnitName="..dump({GetUnitName(unitTag)})) -- * GetUnitName(*string* _unitTag_) ** _Returns:_ *string* _name_
+      table.insert(extras, "GetUnitCaption="..dump({GetUnitCaption(unitTag)})) -- * GetUnitCaption(*string* _unitTag_) ** _Returns:_ *string* _caption_
+
       table.insert(extras, "GetUnitZone="..dump({GetUnitZone(unitTag)})) -- * GetUnitZone(*string* _unitTag_) ** _Returns:_ *string* _zoneName_
+      table.insert(extras, "GetUnitZoneIndex="..dump({GetUnitZoneIndex(unitTag)})) -- * GetUnitZoneIndex(*string* _unitTag_) ** _Returns:_ *luaindex:nilable* _zoneIndex_
       table.insert(extras, "GetUnitWorldPosition="..dump({GetUnitWorldPosition(unitTag)})) -- * GetUnitWorldPosition(*string* _unitTag_) ** _Returns:_ *integer* _zoneId_, *integer* _worldX_, *integer* _worldY_, *integer* _worldZ_
       table.insert(extras, "GetUnitRawWorldPosition="..dump({GetUnitRawWorldPosition(unitTag)})) -- * GetUnitRawWorldPosition(*string* _unitTag_) ** _Returns:_ *integer* _zoneId_, *integer* _worldX_, *integer* _worldY_, *integer* _worldZ_
       table.insert(extras, "IsUnitWorldMapPositionBreadcrumbed="..dump({IsUnitWorldMapPositionBreadcrumbed(unitTag)})) -- * IsUnitWorldMapPositionBreadcrumbed(*string* _unitTag_) ** _Returns:_ *bool* _isBreadcrumb_
-      table.insert(extras, "GetUnitXP="..dump({GetUnitXP(unitTag)})) -- * GetUnitXP(*string* _unitTag_) ** _Returns:_ *integer* _exp_
-      table.insert(extras, "GetUnitXPMax="..dump({GetUnitXPMax(unitTag)})) -- * GetUnitXPMax(*string* _unitTag_) ** _Returns:_ *integer* _maxExp_
-      table.insert(extras, "IsUnitChampion="..dump({IsUnitChampion(unitTag)})) -- * IsUnitChampion(*string* _unitTag_) ** _Returns:_ *bool* _isChampion_
-      table.insert(extras, "IsUnitUsingVeteranDifficulty="..dump({IsUnitUsingVeteranDifficulty(unitTag)})) -- * IsUnitUsingVeteranDifficulty(*string* _unitTag_) ** _Returns:_ *bool* _isVeteranDifficulty_
-      table.insert(extras, "IsUnitBattleLeveled="..dump({IsUnitBattleLeveled(unitTag)})) -- * IsUnitBattleLeveled(*string* _unitTag_) ** _Returns:_ *bool* _isBattleLeveled_
-      table.insert(extras, "IsUnitChampionBattleLeveled="..dump({IsUnitChampionBattleLeveled(unitTag)})) -- * IsUnitChampionBattleLeveled(*string* _unitTag_) ** _Returns:_ *bool* _isChampBattleLeveled_
-      table.insert(extras, "GetUnitBattleLevel="..dump({GetUnitBattleLevel(unitTag)})) -- * GetUnitBattleLevel(*string* _unitTag_) ** _Returns:_ *integer* _battleLevel_
-      table.insert(extras, "GetUnitChampionBattleLevel="..dump({GetUnitChampionBattleLevel(unitTag)})) -- * GetUnitChampionBattleLevel(*string* _unitTag_) ** _Returns:_ *integer* _champBattleLevel_
-      table.insert(extras, "GetUnitDrownTime="..dump({GetUnitDrownTime(unitTag)})) -- * GetUnitDrownTime(*string* _unitTag_) ** _Returns:_ *number* _startTime_, *number* _endTime_
       table.insert(extras, "IsUnitInGroupSupportRange="..dump({IsUnitInGroupSupportRange(unitTag)})) -- * IsUnitInGroupSupportRange(*string* _unitTag_) ** _Returns:_ *bool* _result_
-      table.insert(extras, "GetUnitType="..dump({GetUnitType(unitTag)})) -- * GetUnitType(*string* _unitTag_) ** _Returns:_ *integer* _type_
+      table.insert(extras, "IsGroupMemberInSameWorldAsPlayer="..dump({IsGroupMemberInSameWorldAsPlayer(unitTag)})) -- * IsGroupMemberInSameWorldAsPlayer(*string* _unitTag_) ** _Returns:_ *bool* _isInSameWorld_
+      table.insert(extras, "IsGroupMemberInSameInstanceAsPlayer="..dump({IsGroupMemberInSameInstanceAsPlayer(unitTag)})) -- * IsGroupMemberInSameInstanceAsPlayer(*string* _unitTag_) ** _Returns:_ *bool* _isInSameInstance_
+      table.insert(extras, "GetMapPlayerPosition="..dump({GetMapPlayerPosition(unitTag)})) -- * GetMapPlayerPosition(*string* _unitTag_) ** _Returns:_ *number* _normalizedX_, *number* _normalizedZ_, *number* _heading_, *bool* _isShownInCurrentMap_
+      table.insert(extras, "GetMapPing="..dump({GetMapPing(unitTag)})) -- * GetMapPing(*string* _unitTag_) ** _Returns:_ *number* _normalizedX_, *number* _normalizedY_
+      table.insert(extras, "CanJumpToGroupMember="..dump({CanJumpToGroupMember(unitTag)})) -- * CanJumpToGroupMember(*string* _unitTag_) ** _Returns:_ *bool* _canJump_, *[JumpToPlayerResult|#JumpToPlayerResult]* _result_
+      table.insert(extras, "IsUnitInDungeon="..dump({IsUnitInDungeon(unitTag)})) -- * IsUnitInDungeon(*string* _unitTag_) ** _Returns:_ *bool* _isInDungeon_
+
+      table.insert(extras, "GetUnitDrownTime="..dump({GetUnitDrownTime(unitTag)})) -- * GetUnitDrownTime(*string* _unitTag_) ** _Returns:_ *number* _startTime_, *number* _endTime_
       table.insert(extras, "CanUnitTrade="..dump({CanUnitTrade(unitTag)})) -- * CanUnitTrade(*string* _unitTag_) ** _Returns:_ *bool* _canTrade_
       table.insert(extras, "IsUnitGrouped="..dump({IsUnitGrouped(unitTag)})) -- * IsUnitGrouped(*string* _unitTag_) ** _Returns:_ *bool* _isGrouped_
       table.insert(extras, "IsUnitGroupLeader="..dump({IsUnitGroupLeader(unitTag)})) -- * IsUnitGroupLeader(*string* _unitTag_) ** _Returns:_ *bool* _isGroupLeader_
-      table.insert(extras, "IsGroupMemberInSameWorldAsPlayer="..dump({IsGroupMemberInSameWorldAsPlayer(unitTag)})) -- * IsGroupMemberInSameWorldAsPlayer(*string* _unitTag_) ** _Returns:_ *bool* _isInSameWorld_
-      table.insert(extras, "IsGroupMemberInSameInstanceAsPlayer="..dump({IsGroupMemberInSameInstanceAsPlayer(unitTag)})) -- * IsGroupMemberInSameInstanceAsPlayer(*string* _unitTag_) ** _Returns:_ *bool* _isInSameInstance_
       table.insert(extras, "IsUnitSoloOrGroupLeader="..dump({IsUnitSoloOrGroupLeader(unitTag)})) -- * IsUnitSoloOrGroupLeader(*string* _unitTag_) ** _Returns:_ *bool* _isSoloOrGroupLeader_
       table.insert(extras, "IsUnitFriend="..dump({IsUnitFriend(unitTag)})) -- * IsUnitFriend(*string* _unitTag_) ** _Returns:_ *bool* _isOnFriendList_
       table.insert(extras, "IsUnitIgnored="..dump({IsUnitIgnored(unitTag)})) -- * IsUnitIgnored(*string* _unitTag_) ** _Returns:_ *bool* _isIgnored_
@@ -111,8 +106,6 @@ local function GetUnitDetails(unitTag)
       table.insert(extras, "IsUnitLivestock="..dump({IsUnitLivestock(unitTag)})) -- * IsUnitLivestock(*string* _unitTag_) ** _Returns:_ *bool* _isLivestock_
       table.insert(extras, "GetUnitAlliance="..dump({GetUnitAlliance(unitTag)})) -- * GetUnitAlliance(*string* _unitTag_) ** _Returns:_ *integer* _alliance_
       table.insert(extras, "GetUnitBattlegroundAlliance="..dump({GetUnitBattlegroundAlliance(unitTag)})) -- * GetUnitBattlegroundAlliance(*string* _unitTag_) ** _Returns:_ *[BattlegroundAlliance|#BattlegroundAlliance]* _battlegroundAlliance_
-      table.insert(extras, "GetUnitRace="..dump({GetUnitRace(unitTag)})) -- * GetUnitRace(*string* _unitTag_) ** _Returns:_ *string* _race_
-      table.insert(extras, "GetUnitRaceId="..dump({GetUnitRaceId(unitTag)})) -- * GetUnitRaceId(*string* _unitTag_) ** _Returns:_ *integer* _raceId_
       table.insert(extras, "IsUnitFriendlyFollower="..dump({IsUnitFriendlyFollower(unitTag)})) -- * IsUnitFriendlyFollower(*string* _unitTag_) ** _Returns:_ *bool* _isFollowing_
       table.insert(extras, "GetUnitReaction="..dump({GetUnitReaction(unitTag)})) -- * GetUnitReaction(*string* _unitTag_) ** _Returns:_ *[UnitReactionType|#UnitReactionType]* _unitReaction_
       table.insert(extras, "GetUnitAvARankPoints="..dump({GetUnitAvARankPoints(unitTag)})) -- * GetUnitAvARankPoints(*string* _unitTag_) ** _Returns:_ *integer* _AvARankPoints_
@@ -134,26 +127,39 @@ local function GetUnitDetails(unitTag)
       table.insert(extras, "GetUnitHidingEndTime="..dump({GetUnitHidingEndTime(unitTag)})) -- * GetUnitHidingEndTime(*string* _unitTag_) ** _Returns:_ *number* _endTime_
       table.insert(extras, "IsUnitOnline="..dump({IsUnitOnline(unitTag)})) -- * IsUnitOnline(*string* _unitTag_) ** _Returns:_ *bool* _isOnline_
       table.insert(extras, "IsUnitInspectableSiege="..dump({IsUnitInspectableSiege(unitTag)})) -- * IsUnitInspectableSiege(*string* _unitTag_) ** _Returns:_ *bool* _isInspectableSiege_
-      table.insert(extras, "IsUnitInDungeon="..dump({IsUnitInDungeon(unitTag)})) -- * IsUnitInDungeon(*string* _unitTag_) ** _Returns:_ *bool* _isInDungeon_
       table.insert(extras, "IsUnitGuildKiosk="..dump({IsUnitGuildKiosk(unitTag)})) -- * IsUnitGuildKiosk(*string* _unitTag_) ** _Returns:_ *bool* _isGuildKiosk_
       table.insert(extras, "GetUnitGuildKioskOwner="..dump({GetUnitGuildKioskOwner(unitTag)})) -- * GetUnitGuildKioskOwner(*string* _unitTag_) ** _Returns:_ *integer* _ownerGuildId_
-      table.insert(extras, "GetUnitCaption="..dump({GetUnitCaption(unitTag)})) -- * GetUnitCaption(*string* _unitTag_) ** _Returns:_ *string* _caption_
-      table.insert(extras, "GetUnitSilhouetteTexture="..dump({GetUnitSilhouetteTexture(unitTag)})) -- * GetUnitSilhouetteTexture(*string* _unitTag_) ** _Returns:_ *string* _icon_
       table.insert(extras, "GetUnitBankAccessBag="..dump({GetUnitBankAccessBag(unitTag)})) -- * GetUnitBankAccessBag(*string* _unitTag_) ** _Returns:_ *[Bag|#Bag]:nilable* _bankBag_
       table.insert(extras, "GetAllUnitAttributeVisualizerEffectInfo="..dump({GetAllUnitAttributeVisualizerEffectInfo(unitTag)})) -- * GetAllUnitAttributeVisualizerEffectInfo(*string* _unitTag_) ** _Uses variable returns..._ ** _Returns:_ *[UnitAttributeVisual|#UnitAttributeVisual]* _unitAttributeVisual_, *[DerivedStats|#DerivedStats]* _statType_, *[Attributes|#Attributes]* _attributeType_, *[CombatMechanicType|#CombatMechanicType]* _powerType_, *number* _value_, *number* _maxValue_
       table.insert(extras, "GetUnitDifficulty="..dump({GetUnitDifficulty(unitTag)})) -- * GetUnitDifficulty(*string* _unitTag_) ** _Returns:_ *[UIMonsterDifficulty|#UIMonsterDifficulty]* _difficult_
       table.insert(extras, "GetUnitTitle="..dump({GetUnitTitle(unitTag)})) -- * GetUnitTitle(*string* _unitTag_) ** _Returns:_ *string* _title_
       table.insert(extras, "GetNumBuffs="..dump({GetNumBuffs(unitTag)})) -- * GetNumBuffs(*string* _unitTag_) ** _Returns:_ *integer* _numBuffs_
-      table.insert(extras, "GetMapPlayerPosition="..dump({GetMapPlayerPosition(unitTag)})) -- * GetMapPlayerPosition(*string* _unitTag_) ** _Returns:_ *number* _normalizedX_, *number* _normalizedZ_, *number* _heading_, *bool* _isShownInCurrentMap_
-      table.insert(extras, "GetMapPing="..dump({GetMapPing(unitTag)})) -- * GetMapPing(*string* _unitTag_) ** _Returns:_ *number* _normalizedX_, *number* _normalizedY_
-      table.insert(extras, "CanJumpToGroupMember="..dump({CanJumpToGroupMember(unitTag)})) -- * CanJumpToGroupMember(*string* _unitTag_) ** _Returns:_ *bool* _canJump_, *[JumpToPlayerResult|#JumpToPlayerResult]* _result_
       table.insert(extras, "GetGroupIndexByUnitTag="..dump({GetGroupIndexByUnitTag(unitTag)})) -- * GetGroupIndexByUnitTag(*string* _unitTag_) ** _Returns:_ *luaindex* _sortIndex_
       table.insert(extras, "IsGroupMemberInRemoteRegion="..dump({IsGroupMemberInRemoteRegion(unitTag)})) -- * IsGroupMemberInRemoteRegion(*string* _unitTag_) ** _Returns:_ *bool* _inRemoteRegion_
       table.insert(extras, "GetGroupMemberSelectedRole="..dump({GetGroupMemberSelectedRole(unitTag)})) -- * GetGroupMemberSelectedRole(*string* _unitTag_) ** _Returns:_ *[LFGRole|#LFGRole]* _role_
       table.insert(extras, "GenerateUnitNameTooltipLine="..dump({GenerateUnitNameTooltipLine(unitTag)})) -- * GenerateUnitNameTooltipLine(*string* _unitTag_) ** _Returns:_ *string* _text_, *[InterfaceColorType|#InterfaceColorType]* _interfaceColorType_, *integer* _color_
+
+      table.insert(extras, "GetUnitGender="..dump({GetUnitGender(unitTag)})) -- * GetUnitGender(*string* _unitTag_) ** _Returns:_ *[Gender|#Gender]* _gender_
+      table.insert(extras, "GetUnitSilhouetteTexture="..dump({GetUnitSilhouetteTexture(unitTag)})) -- * GetUnitSilhouetteTexture(*string* _unitTag_) ** _Returns:_ *string* _icon_
+      table.insert(extras, "GetUnitRace="..dump({GetUnitRace(unitTag)})) -- * GetUnitRace(*string* _unitTag_) ** _Returns:_ *string* _race_
+      table.insert(extras, "GetUnitRaceId="..dump({GetUnitRaceId(unitTag)})) -- * GetUnitRaceId(*string* _unitTag_) ** _Returns:_ *integer* _raceId_
+      table.insert(extras, "GetUnitClass="..dump({GetUnitClass(unitTag)})) -- * GetUnitClass(*string* _unitTag_) ** _Returns:_ *string* _className_
+      table.insert(extras, "GetUnitClassId="..dump({GetUnitClassId(unitTag)})) -- * GetUnitClassId(*string* _unitTag_) ** _Returns:_ *integer* _classId_
+
+      table.insert(extras, "IsUnitChampion="..dump({IsUnitChampion(unitTag)})) -- * IsUnitChampion(*string* _unitTag_) ** _Returns:_ *bool* _isChampion_
       table.insert(extras, "GetUnitLevel="..dump({GetUnitLevel(unitTag)})) -- * GetUnitLevel(*string* _unitTag_) ** _Returns:_ *integer* _level_
-      table.insert(extras, "GetUnitName="..dump({GetUnitName(unitTag)})) -- * GetUnitName(*string* _unitTag_) ** _Returns:_ *string* _name_
-      table.insert(extras, "GetUnitZoneIndex="..dump({GetUnitZoneIndex(unitTag)})) -- * GetUnitZoneIndex(*string* _unitTag_) ** _Returns:_ *luaindex:nilable* _zoneIndex_
+      table.insert(extras, "GetUnitXP="..dump({GetUnitXP(unitTag)})) -- * GetUnitXP(*string* _unitTag_) ** _Returns:_ *integer* _exp_
+      table.insert(extras, "GetUnitXPMax="..dump({GetUnitXPMax(unitTag)})) -- * GetUnitXPMax(*string* _unitTag_) ** _Returns:_ *integer* _maxExp_
+      table.insert(extras, "GetUnitChampionPoints="..dump({GetUnitChampionPoints(unitTag)})) -- * GetUnitChampionPoints(*string* _unitTag_) ** _Returns:_ *integer* _championPoints_
+      table.insert(extras, "GetUnitEffectiveChampionPoints="..dump({GetUnitEffectiveChampionPoints(unitTag)})) -- * GetUnitEffectiveChampionPoints(*string* _unitTag_) ** _Returns:_ *integer* _championPoints_
+      table.insert(extras, "CanUnitGainChampionPoints="..dump({CanUnitGainChampionPoints(unitTag)})) -- * CanUnitGainChampionPoints(*string* _unitTag_) ** _Returns:_ *bool* _canGainChampionPoints_
+      table.insert(extras, "GetUnitEffectiveLevel="..dump({GetUnitEffectiveLevel(unitTag)})) -- * GetUnitEffectiveLevel(*string* _unitTag_) ** _Returns:_ *integer* _level_
+      table.insert(extras, "IsUnitUsingVeteranDifficulty="..dump({IsUnitUsingVeteranDifficulty(unitTag)})) -- * IsUnitUsingVeteranDifficulty(*string* _unitTag_) ** _Returns:_ *bool* _isVeteranDifficulty_
+      table.insert(extras, "IsUnitBattleLeveled="..dump({IsUnitBattleLeveled(unitTag)})) -- * IsUnitBattleLeveled(*string* _unitTag_) ** _Returns:_ *bool* _isBattleLeveled_
+      table.insert(extras, "IsUnitChampionBattleLeveled="..dump({IsUnitChampionBattleLeveled(unitTag)})) -- * IsUnitChampionBattleLeveled(*string* _unitTag_) ** _Returns:_ *bool* _isChampBattleLeveled_
+      table.insert(extras, "GetUnitBattleLevel="..dump({GetUnitBattleLevel(unitTag)})) -- * GetUnitBattleLevel(*string* _unitTag_) ** _Returns:_ *integer* _battleLevel_
+      table.insert(extras, "GetUnitChampionBattleLevel="..dump({GetUnitChampionBattleLevel(unitTag)})) -- * GetUnitChampionBattleLevel(*string* _unitTag_) ** _Returns:_ *integer* _champBattleLevel_
+
    end
    return unit
 end
@@ -168,33 +174,60 @@ end
 
 local histPlayerMovement = {}
 local seqPlayerMovement = 0
-local zoneWalkRate = 0
+local zoneWalkRate = .0001
+local zoneUwpWalkRate = .0001
+local zoneUrwpWalkRate = .0001
+local histReactionTimes = {}
+local avgReactionTime = 30
 local function TrackPlayerMovement(ms,playerX,playerY,indHoldingForward,playerIsCrouching,playerIsMounted)
-   --local entry = {ms=ms,playerX=playerX,playerY=playerY,indHoldingForward=indHoldingForward,playerIsCrouching=playerIsCrouching,playerIsMounted=playerIsMounted,}
-   --local idx = seqPlayerMovement%10
-   --histPlayerMovement[idx] = entry
-   --seqPlayerMovement = seqPlayerMovement + 1
-   table.insert(histPlayerMovement, {ms=ms,playerX=playerX,playerY=playerY,indHoldingForward=indHoldingForward,playerIsCrouching=playerIsCrouching,playerIsMounted=playerIsMounted,})
+   local uwpZone, uwpX, uwpY, uwpZ = GetUnitWorldPosition("player") -- * GetUnitWorldPosition(*string* _unitTag_) ** _Returns:_ *integer* _zoneId_, *integer* _worldX_, *integer* _worldY_, *integer* _worldZ_
+   local urwpZone, urwpX, urwpY, urwpZ = GetUnitRawWorldPosition("player") -- * GetUnitRawWorldPosition(*string* _unitTag_) ** _Returns:_ *integer* _zoneId_, *integer* _worldX_, *integer* _worldY_, *integer* _worldZ_
+
+   table.insert(histPlayerMovement, {ms=ms,playerX=playerX,playerY=playerY,indHoldingForward=indHoldingForward,playerIsCrouching=playerIsCrouching,playerIsMounted=playerIsMounted,
+      uwpZone=uwpZone,uwpX=uwpX,uwpY=uwpY,uwpZ=uwpZ,
+      urwpZone=urwpZone,urwpX=urwpX,urwpY=urwpY,urwpZ=urwpZ,})
    local recentPlayerMovement = {}
    local prv
    local cntHist = 0
    local cntWalkRate, smWalkRate = 0, 0
-   for k,cur in ipairs(o) do
+   local smUwpWalkRate, smUrwpWalkRate = 0, 0
+   local msStartedHoldingForward = 0
+   for idxH,cur in ipairs(histPlayerMovement) do
       if prv ~= nil then
          table.insert(recentPlayerMovement, cur)
          cntHist = cntHist + 1
          if cur.playerX ~= prv.playerX or cur.playerY ~= prv.playerY then
             if prv.indHoldingForward and not prv.playerIsCrouching and not prv.playerIsMounted then
                local dist = sqrt(((cur.playerX - prv.playerX) * (cur.playerX - prv.playerX)) + ((cur.playerY - prv.playerY) * (cur.playerY - prv.playerY)))
-               local dur = cur.ms - prv.ms
+               local dur = (cur.ms - prv.ms)
                cntWalkRate = cntWalkRate + 1
                smWalkRate = smWalkRate + (dist/dur)
+               smUwpWalkRate = smUwpWalkRate + (sqrt(((cur.uwpX - prv.uwpX) * (cur.uwpX - prv.uwpX)) + ((cur.uwpY - prv.uwpY) * (cur.uwpY - prv.uwpY)))/dur)
+               smUrwpWalkRate = smUrwpWalkRate + (sqrt(((cur.urwpX - prv.urwpX) * (cur.urwpX - prv.urwpX)) + ((cur.urwpY - prv.urwpY) * (cur.urwpY - prv.urwpY)))/dur)
             end
+            if msStartedHoldingForward >= cur.ms - 1000 then
+               histReactionTimes[cur.ms] = (cur.ms - msStartedHoldingForward)
+               msStartedHoldingForward = 0
+               local cntDurations, avgDurations = 0, 0
+               for reactionMs,reactionDuration in pairs(histReactionTimes) do
+                  cntDurations = cntDurations + 1
+                  avgDurations = avgDurations + reactionDuration
+               end
+               avgDurations = avgDurations / cntDurations
+               if cntDurations > 1 then avgReactionTime = avgDurations end
+            end
+         end
+         if not prv.indHoldingForward and cur.indHoldingForward and (cur.playerX == prv.playerX and cur.playerY == prv.playerY) then
+            msStartedHoldingForward = cur.ms
          end
       end
       prv = cur
    end
-   if cntWalkRate == cntHist then zoneWalkRate = (smWalkRate/cntWalkRate) end
+   if cntHist > 10 and cntWalkRate == cntHist then
+      zoneWalkRate = (smWalkRate/cntWalkRate)
+      zoneUwpWalkRate = (smUwpWalkRate/cntWalkRate)
+      zoneUrwpWalkRate = (smUrwpWalkRate/cntWalkRate)
+   end
    if cntHist > 10 then histPlayerMovement = recentPlayerMovement end
 end
 
@@ -225,7 +258,7 @@ function AutoFollow:Initialize()
    EVENT_MANAGER:RegisterForUpdate(ADDON_NAME.."KeepAlive", 10*60*1000, KeepAlive)
 end
 
-local function GetGroupLeaderUnitTag()
+local function GetGroupLeaderAndReticleUnitTag()
    if not IsUnitGrouped("player") then return nil end
    local tagLeader, tagReticle, tagTemp
    for i=1,GROUP_SIZE_MAX do
@@ -285,6 +318,7 @@ local function MoveToTarget()
 
       local playerCamHeading = GetPlayerCameraHeading()
       local targetDirection, targetDistance = GetDirAndDist(playerX, playerY, targetX, targetY)
+      targetDistance = targetDistance / zoneWalkRate -- distance should now be by number of cycles of average walking pace
       local turnDirection = (((pi+(playerCamHeading-targetDirection))%(pi*2))-pi)
       local turnPower = math.abs(turnDirection)
 
@@ -330,13 +364,22 @@ local function MoveToTarget()
       --dmsg(("playerX:"..tostring(playerX)).." "..("playerY:"..tostring(playerY)).." "..("dir:"..tostring(playerCamHeading)))
       --dmsg(("(playerX-targetX):"..tostring(playerX-targetX)).." "..("(playerY-targetY):"..tostring(playerY-targetY)))
       --dmsg("tDist:"..tostring(targetDistance).." ".."tDir:"..tostring(targetDirection))
-      dmsg("tDist:"..tostring(targetDistance).." ".."turn:"..tostring(turnDirection))
-      dmsg("targetOnSamePlayerMap:"..tostring(targetOnSamePlayerMap))
-      dmsg("tagOnSamePlayerMap:"..tostring(tagOnSamePlayerMap))
+      --dmsg("tDist:"..tostring(targetDistance).." ".."turn:"..tostring(turnDirection))
+      --dmsg("targetOnSamePlayerMap:"..tostring(targetOnSamePlayerMap))
+      --dmsg("tagOnSamePlayerMap:"..tostring(tagOnSamePlayerMap))
       --dmsg("left:"..tostring(indLookLeft).." ".."qleft:"..tostring(indLookQuickLeft))
       --dmsg("right:"..tostring(indLookRight).." ".."qright:"..tostring(indLookQuickRight))
-      dmsg("indMoveToTarget:"..tostring(indMoveToTarget).." ".."indMoveForward:"..tostring(indMoveForward).." ".."indRunForward:"..tostring(indRunForward))
-      dmsg("indScanForDoor:"..tostring(indScanForDoor))
+      dmsg("ptk:"..tostring(avgReactionTime))
+      dmsg("cmd:"
+           .." "..ternary(indMoveToTarget, "nav", "")
+           .." "..ternary(indMoveForward, "fwd", "")
+           .." "..ternary(indRunForward, "run", "")
+           .." "..ternary(indScanForDoor, "scn", ""))
+      dmsg("speed"
+           .." ".."map:"..tostring(zoneWalkRate)
+           .." ".."world:"..tostring(zoneUwpWalkRate)
+           .." ".."raw:"..tostring(zoneUrwpWalkRate))
+
 
    end
    if indLookLeft then ptk.SetIndOn(ptk.VM_MOVE_LEFT) else ptk.SetIndOff(ptk.VM_MOVE_LEFT) end
@@ -349,12 +392,14 @@ local function MoveToTarget()
    if indToggleCrouch then ptk.SetIndOnFor(ptk.VK_CONTROL, 20) end
    if indToggleMount then ptk.SetIndOnFor(ptk.VK_H, 20) end
    --if indToggleMount then ptk.UseAction(ptk.GetAction("TOGGLE_MOUNT")) end
-   TrackPlayerMovement(now,playerX,playerY,indHoldingForward,playerIsCrouching,playerIsMounted)
+   if true then -- attempt to determine zone scale
+      TrackPlayerMovement(now,playerX,playerY,indHoldingForward,playerIsCrouching,playerIsMounted)
+   end
 end
 
 function AutoFollow:FollowLeaderStart()
    if targetUnitTag == nil then
-      local tagLeader, tagReticle = GetGroupLeaderUnitTag()
+      local tagLeader, tagReticle = GetGroupLeaderAndReticleUnitTag()
       targetUnitTag = tagReticle or tagLeader
       if AreUnitsEqual(targetUnitTag, "player") then targetUnitTag = nil end
 
