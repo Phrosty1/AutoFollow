@@ -7,19 +7,20 @@ The difficulty was in converting the XY locations of follower and leader into th
 
 ## Known issues:
 * Floods the chat with debug info.
-  * Hopefully already corrected.
-* Gets snagged on things pretty easily.
-  * Not sure this can ever be solved but the follow distance is pretty close.
+  * Has a flag now, defaulted to true.
+* Inconsistent follow distance across zones and subzones.
+  * Attempted to implement tracking of recent walk speeds, hopefully this helps.
 * Roll dodges more than it should.
-  * I may put in a delay to prevent this. It's pretty annoying.
+  * Included a timer and holding indicator so it only hits Forward if already pressing it or hasn't released it in the last second.
 
 ## Want to have:
 * Use doors better (or at all, it only worked once).
-  * This has been difficult to test.
+  * Working much better now, not sure why it keeps trying to scan when the reticle reaches a door.
 * Sneak when leader sneaks.
-  * Should be easy enough.
+  * Seems to be working.
 * Mount when leader mounts and dismount when close to leader and leader is dismounted.
-  * Should be easy enough.
+  * Seems to be working! I'm still mulling having you dismount when leader is reached though.
 * Mount when leader is over a certain distance.
-  * Still mulling this over since it's not really intended for long distance path finding.
-  
+  * It can't hurt to try to do this when I get the distance smoothed out.
+* Make better breadcrumbs for when leader goes thru the door. Also, make spaced breadcrumbs every few feet for when crouching so the crouched path is followed. Maybe make them whenever leader is not in support range. Then clear the breadcrumbs when the leader is close enough to avoid unnecessary wandering.
+  * Barely started.
