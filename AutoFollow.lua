@@ -3,7 +3,7 @@ AutoFollow = {}
 local ADDON_NAME = "AutoFollow"
 local ptk = LibPixelControl
 local GetGameTimeMilliseconds = GetGameTimeMilliseconds
-local verbose = true -- true -- false
+local verbose = false -- true -- false
 local settingMouseFollowAlways = true -- true false
 local settingDistScanForDoor = 5 -- was .001, now a multiple of speed
 local settingDistHoldFromTarget = 30 -- was .020, now a multiple of speed
@@ -182,10 +182,11 @@ local avgReactionTime = 30
 local function TrackPlayerMovement(ms,playerX,playerY,indHoldingForward,playerIsCrouching,playerIsMounted)
    local uwpZone, uwpX, uwpY, uwpZ = GetUnitWorldPosition("player") -- * GetUnitWorldPosition(*string* _unitTag_) ** _Returns:_ *integer* _zoneId_, *integer* _worldX_, *integer* _worldY_, *integer* _worldZ_
    local urwpZone, urwpX, urwpY, urwpZ = GetUnitRawWorldPosition("player") -- * GetUnitRawWorldPosition(*string* _unitTag_) ** _Returns:_ *integer* _zoneId_, *integer* _worldX_, *integer* _worldY_, *integer* _worldZ_
-
-   table.insert(histPlayerMovement, {ms=ms,playerX=playerX,playerY=playerY,indHoldingForward=indHoldingForward,playerIsCrouching=playerIsCrouching,playerIsMounted=playerIsMounted,
-      uwpZone=uwpZone,uwpX=uwpX,uwpY=uwpY,uwpZ=uwpZ,
-      urwpZone=urwpZone,urwpX=urwpX,urwpY=urwpY,urwpZ=urwpZ,})
+   local datMovement = {ms=ms,playerX=playerX,playerY=playerY,indHoldingForward=indHoldingForward,playerIsCrouching=playerIsCrouching,playerIsMounted=playerIsMounted,
+         uwpZone=uwpZone,uwpX=uwpX,uwpY=uwpY,uwpZ=uwpZ,
+         urwpZone=urwpZone,urwpX=urwpX,urwpY=urwpY,urwpZ=urwpZ,}
+   table.insert(histPlayerMovement, datMovement)
+   --AnyLogger:LogAnyTxt(ADDON_NAME.."datMovement", dump(datMovement))
    local recentPlayerMovement = {}
    local prv
    local cntHist = 0
@@ -223,7 +224,7 @@ local function TrackPlayerMovement(ms,playerX,playerY,indHoldingForward,playerIs
       end
       prv = cur
    end
-   if cntHist > 10 and cntWalkRate == cntHist then
+   if cntWalkRate > 10 and cntWalkRate == cntHist then
       zoneWalkRate = (smWalkRate/cntWalkRate)
       zoneUwpWalkRate = (smUwpWalkRate/cntWalkRate)
       zoneUrwpWalkRate = (smUrwpWalkRate/cntWalkRate)
@@ -231,17 +232,21 @@ local function TrackPlayerMovement(ms,playerX,playerY,indHoldingForward,playerIs
    if cntHist > 10 then histPlayerMovement = recentPlayerMovement end
 end
 
+local function KeepAlive()
+   ptk.SetIndOnFor(ptk.VK_BACK_QUOTE, 100)
+end
 local function SubZoneChanged()
    msLastSubZoneChanged = GetGameTimeMilliseconds()
+   --AnyLogger:LogAnyTxt(ADDON_NAME, "SubZoneChanged")
+end
+local function LeaderZoneChanged(_, unitTag, newZoneName)
+   if unitTag == targetUnitTag then
+      msLastSubZoneChanged = GetGameTimeMilliseconds()
+      JumpToGroupMember(targetUnitName) -- * JumpToGroupMember(*string* _characterOrDisplayName_)
+      --AnyLogger:LogAnyTxt(ADDON_NAME, "JumpToGroupMember")
+   end
 end
 local function GroupTrack()
-   --*integer* _zoneId_, *integer* _worldX_, *integer* _worldY_, *integer* _worldZ_
-   --GetUnitRawWorldPosition
-   --local zoneId, worldX, worldY, worldZ = 
-   -- -- * GetUnitRawWorldPosition(*string* _unitTag_) ** _Returns:_ *integer* _zoneId_, *integer* _worldX_, *integer* _worldY_, *integer* _worldZ_
-end
-local function KeepAlive()
-   ptk.SetIndOnFor(ptk.VK_W, 100)
 end
 
 function AutoFollow:Initialize()
@@ -251,7 +256,9 @@ function AutoFollow:Initialize()
    AutoFollowSavedVariables = AutoFollowSavedVariables or {}
    AutoFollow.savedVars = AutoFollowSavedVariables
    AutoFollowSavedVariables.log = {}
-   EVENT_MANAGER:RegisterForEvent(ADDON_NAME.."SubZoneChanged", EVENT_CURRENT_SUBZONE_LIST_CHANGED, SubZoneChanged)
+   EVENT_MANAGER:RegisterForEvent(ADDON_NAME.."SubZoneChanged", EVENT_CURRENT_SUBZONE_LIST_CHANGED, SubZoneChanged) -- * EVENT_CURRENT_SUBZONE_LIST_CHANGED
+   EVENT_MANAGER:RegisterForEvent(ADDON_NAME.."LeaderZoneChanged", EVENT_ZONE_UPDATE, LeaderZoneChanged) -- * EVENT_ZONE_UPDATE (*string* _unitTag_, *string* _newZoneName_)
+
 
    EVENT_MANAGER:RegisterForUpdate(ADDON_NAME.."GroupTrack", 10, GroupTrack)
 
@@ -361,9 +368,9 @@ local function MoveToTarget()
             --if GetAdvancedStatValue(ADVANCED_STAT_DISPLAY_TYPE_SPRINT_SPEED) then end
          end
       end
-      --dmsg(("playerX:"..tostring(playerX)).." "..("playerY:"..tostring(playerY)).." "..("dir:"..tostring(playerCamHeading)))
+      dmsg(("pX:"..tostring(playerX)).." "..("pY:"..tostring(playerY)).." "..("dir:"..tostring(playerCamHeading)))
       --dmsg(("(playerX-targetX):"..tostring(playerX-targetX)).." "..("(playerY-targetY):"..tostring(playerY-targetY)))
-      --dmsg("tDist:"..tostring(targetDistance).." ".."tDir:"..tostring(targetDirection))
+      dmsg("tDist:"..tostring(targetDistance).." ".."tDir:"..tostring(targetDirection))
       --dmsg("tDist:"..tostring(targetDistance).." ".."turn:"..tostring(turnDirection))
       --dmsg("targetOnSamePlayerMap:"..tostring(targetOnSamePlayerMap))
       --dmsg("tagOnSamePlayerMap:"..tostring(tagOnSamePlayerMap))
@@ -375,10 +382,19 @@ local function MoveToTarget()
            .." "..ternary(indMoveForward, "fwd", "")
            .." "..ternary(indRunForward, "run", "")
            .." "..ternary(indScanForDoor, "scn", ""))
-      dmsg("speed"
+      dmsg("speed:"
            .." ".."map:"..tostring(zoneWalkRate)
            .." ".."world:"..tostring(zoneUwpWalkRate)
            .." ".."raw:"..tostring(zoneUrwpWalkRate))
+      --AnyLogger:LogAnyTxt(ADDON_NAME.."cmd", ("cmd:"
+           .." "..ternary(indMoveToTarget, "nav", "")
+           .." "..ternary(indMoveForward, "fwd", "")
+           .." "..ternary(indRunForward, "run", "")
+           .." "..ternary(indScanForDoor, "scn", "")))
+      --AnyLogger:LogAnyTxt(ADDON_NAME.."speed", ("speed:"
+           .." ".."map:"..tostring(zoneWalkRate)
+           .." ".."world:"..tostring(zoneUwpWalkRate)
+           .." ".."raw:"..tostring(zoneUrwpWalkRate)))
 
 
    end
@@ -387,11 +403,10 @@ local function MoveToTarget()
    if indLookRight then ptk.SetIndOn(ptk.VM_MOVE_RIGHT) else ptk.SetIndOff(ptk.VM_MOVE_RIGHT) end
    if indLookQuickRight then ptk.SetIndOn(ptk.VM_MOVE_10_RIGHT) else ptk.SetIndOff(ptk.VM_MOVE_10_RIGHT) end
    if indMoveForward and now > msLastReleaseForward + 1000 then ptk.SetIndOn(ptk.VK_W) indHoldingForward = true else ptk.SetIndOff(ptk.VK_W) if indHoldingForward then msLastReleaseForward = now end indHoldingForward = false end
-   if indRunForward then ptk.SetIndOn(ptk.VK_SHIFT) else ptk.SetIndOff(ptk.VK_SHIFT) end
+   --if indRunForward then ptk.SetIndOn(ptk.VK_SHIFT) else ptk.SetIndOff(ptk.VK_SHIFT) end
    if indUseDoor and now > msLastUseDoor + 500 then ptk.SetIndOnFor(ptk.VK_E, 20) msLastUseDoor = now end
    if indToggleCrouch then ptk.SetIndOnFor(ptk.VK_CONTROL, 20) end
    if indToggleMount then ptk.SetIndOnFor(ptk.VK_H, 20) end
-   --if indToggleMount then ptk.UseAction(ptk.GetAction("TOGGLE_MOUNT")) end
    if true then -- attempt to determine zone scale
       TrackPlayerMovement(now,playerX,playerY,indHoldingForward,playerIsCrouching,playerIsMounted)
    end
@@ -414,6 +429,7 @@ function AutoFollow:FollowLeaderStart()
 
       targetX, targetY, targetHeading, targetOnSamePlayerMap = GetMapPlayerPosition(targetUnitTag) -- * GetMapPlayerPosition(*string* _unitTag_) ** _Returns:_ *number* _normalizedX_, *number* _normalizedZ_, *number* _heading_, *bool* _isShownInCurrentMap_
       targetOnSamePlayerMap = IsUnitInGroupSupportRange(targetUnitTag) -- * IsUnitInGroupSupportRange(*string* _unitTag_) ** _Returns:_ *bool* _result_
+      --if not targetOnSamePlayerMap then targetUnitTag = nil end
 
       dmsg("tag:"..tostring(targetUnitTag).." ".."X:"..tostring(targetX).." ".."Y:"..tostring(targetY).." ".."SameMap:"..tostring(targetOnSamePlayerMap))
       dmsg(" ".."Range:"..tostring(IsUnitInGroupSupportRange(targetUnitTag))) -- * IsUnitInGroupSupportRange(*string* _unitTag_) ** _Returns:_ *bool* _result_
@@ -423,7 +439,6 @@ function AutoFollow:FollowLeaderStart()
       local targetDirection, targetDistance = GetDirAndDist(playerX, playerY, targetX, targetY)
       dmsg("tDist:"..tostring(targetDistance))
 
-      if not targetOnSamePlayerMap then targetUnitTag = nil end
 
       if targetUnitTag == nil then
          d("Leader could not be established")
@@ -432,7 +447,7 @@ function AutoFollow:FollowLeaderStart()
          indMovementPaused = false
          d("Follow Unit ON - "..tostring(targetUnitName))
          --EVENT_MANAGER:UnregisterForUpdate(ADDON_NAME)
-         EVENT_MANAGER:RegisterForUpdate(ADDON_NAME, 10, MoveToTarget)
+         EVENT_MANAGER:RegisterForUpdate(ADDON_NAME, 100, MoveToTarget)
          MoveToTarget()
       end
    else
@@ -446,6 +461,7 @@ function AutoFollow:SingleCheck()
    --d("SubzoneName:"..tostring(GetPlayerActiveSubzoneName()))
    AutoFollowSavedVariables.log.group1 = GetUnitDetails("group1")
    AutoFollowSavedVariables.log.group2 = GetUnitDetails("group2")
+   --AnyLogger:LogAnyTxt(ADDON_NAME, "SingleCheck")
    ClearNavigation()
 end
 
@@ -465,6 +481,7 @@ EVENT_MANAGER:RegisterForEvent(ADDON_NAME, EVENT_ADD_ON_LOADED, AutoFollow.OnAdd
 local tESOtoPixelBinary = {[KEY_0] = VK_0,}
 local tBindsByActionName = {}
 function KeybindsSave()
+   --if indToggleMount then ptk.UseAction(ptk.GetAction("TOGGLE_MOUNT")) end
    local logTextArr = {}
    local saveTable = {}
    saveTable.BindTable = {}
