@@ -377,24 +377,19 @@ local function MoveToTarget()
       --dmsg("left:"..tostring(indLookLeft).." ".."qleft:"..tostring(indLookQuickLeft))
       --dmsg("right:"..tostring(indLookRight).." ".."qright:"..tostring(indLookQuickRight))
       dmsg("ptk:"..tostring(avgReactionTime))
-      dmsg("cmd:"
+      local txtCmd = "cmd:"
            .." "..ternary(indMoveToTarget, "nav", "")
            .." "..ternary(indMoveForward, "fwd", "")
            .." "..ternary(indRunForward, "run", "")
-           .." "..ternary(indScanForDoor, "scn", ""))
-      dmsg("speed:"
+           .." "..ternary(indScanForDoor, "scn", "")
+      local txtSpd = "speed:"
            .." ".."map:"..tostring(zoneWalkRate)
            .." ".."world:"..tostring(zoneUwpWalkRate)
-           .." ".."raw:"..tostring(zoneUrwpWalkRate))
-      --AnyLogger:LogAnyTxt(ADDON_NAME.."cmd", ("cmd:"
-           .." "..ternary(indMoveToTarget, "nav", "")
-           .." "..ternary(indMoveForward, "fwd", "")
-           .." "..ternary(indRunForward, "run", "")
-           .." "..ternary(indScanForDoor, "scn", "")))
-      --AnyLogger:LogAnyTxt(ADDON_NAME.."speed", ("speed:"
-           .." ".."map:"..tostring(zoneWalkRate)
-           .." ".."world:"..tostring(zoneUwpWalkRate)
-           .." ".."raw:"..tostring(zoneUrwpWalkRate)))
+           .." ".."raw:"..tostring(zoneUrwpWalkRate)
+      dmsg(txtCmd)
+      dmsg(txtSpd)
+      --AnyLogger:LogAnyTxt(ADDON_NAME.."cmd", txtCmd)
+      --AnyLogger:LogAnyTxt(ADDON_NAME.."speed", txtSpd)
 
 
    end
