@@ -5,6 +5,9 @@
             <Down>AutoFollow:FollowLeaderStart()</Down>
             <Up>AutoFollow:FollowLeaderStop()</Up>
          </Action>
+         <Action name="FOLLOW_TRACK">
+            <Down>AutoFollow:TrackUnit()</Down>
+         </Action>
          <Action name="FOLLOW_TEST">
             <Down>AutoFollow:SingleCheck()</Down>
          </Action>
