@@ -3,7 +3,7 @@ AutoFollow = {}
 local ADDON_NAME = "AutoFollow"
 local ptk = LibPixelControl
 local GetGameTimeMilliseconds = GetGameTimeMilliseconds
-local verbose = false -- true -- false
+local verbose = true -- true -- false
 local settingMouseFollowAlways = true -- true false
 local settingDistScanForDoor = 5 -- was .001, now a multiple of speed
 local settingDistHoldFromTarget = 30 -- was .020, now a multiple of speed
@@ -251,6 +251,7 @@ end
 
 function AutoFollow:Initialize()
    ZO_CreateStringId("SI_BINDING_NAME_".."FOLLOW_LEADER", "Follow Leader")
+   ZO_CreateStringId("SI_BINDING_NAME_".."FOLLOW_TRACK", "Track Unit")
    ZO_CreateStringId("SI_BINDING_NAME_".."FOLLOW_TEST", "Follow Test")
    --AutoFollow.savedVars = ZO_SavedVars:NewAccountWide("AutoFollowSavedVariables", 1, nil, {})
    AutoFollowSavedVariables = AutoFollowSavedVariables or {}
@@ -451,6 +452,78 @@ function AutoFollow:FollowLeaderStart()
    end
 end
 function AutoFollow:FollowLeaderStop() end
+
+local histUnitMovement = {}
+local histSpeed = "("
+local function ClearUnitTracking()
+   dmsg("ClearUnitTracking")
+   if true then
+      local logUnitMovement = {}
+      for idxH,cur in ipairs(histUnitMovement) do
+         table.insert(logUnitMovement, dump(cur))
+      end
+      AutoFollowSavedVariables.log.histUnitMovement = logUnitMovement
+      AutoFollowSavedVariables.log.histSpeed = string.sub(histSpeed .. ")", 1, 2000)
+   end
+   targetUnitTag = nil
+   targetUnitName = nil
+   EVENT_MANAGER:UnregisterForUpdate(ADDON_NAME.."TrackUnit")
+end
+local function TrackMovementUnit()
+   local now = GetGameTimeMilliseconds()
+   local ms = now
+   local unitX, unitY, unitHeading = GetMapPlayerPosition(targetUnitTag) -- * GetMapPlayerPosition(*string* _unitTag_) ** _Returns:_ *number* _normalizedX_, *number* _normalizedZ_, *number* _heading_, *bool* _isShownInCurrentMap_
+   --local uwpZone, uwpX, uwpY, uwpZ = GetUnitWorldPosition(targetUnitTag) -- * GetUnitWorldPosition(*string* _unitTag_) ** _Returns:_ *integer* _zoneId_, *integer* _worldX_, *integer* _worldY_, *integer* _worldZ_
+   --local urwpZone, urwpX, urwpY, urwpZ = GetUnitRawWorldPosition(targetUnitTag) -- * GetUnitRawWorldPosition(*string* _unitTag_) ** _Returns:_ *integer* _zoneId_, *integer* _worldX_, *integer* _worldY_, *integer* _worldZ_
+   local unitIsCrouching = (GetUnitStealthState(targetUnitTag) ~= STEALTH_STATE_NONE)
+   local unitMountedState = GetTargetMountedStateInfo(targetUnitName) -- * GetTargetMountedStateInfo(*string* _characterOrDisplayName_) ** _Returns:_ *[MountedState|#MountedState]* _mountedState_, *bool* _isRidingGroupMount_, *bool* _hasFreePassengerSlot_
+   local unitIsMounted = (unitMountedState==PLAYER_MOUNTED_STATE_MOUNT_RIDER or unitMountedState==MOUNTED_STATE_MOUNT_RIDER)
+
+   local datMovement = {ms=ms,unitX=unitX,unitY=unitY,unitIsCrouching=unitIsCrouching,unitIsMounted=unitIsMounted}
+   table.insert(histUnitMovement, datMovement)
+   --AnyLogger:LogAnyTxt(ADDON_NAME.."datMovement", dump(datMovement))
+   local recentPlayerMovement = {}
+   local prv
+   local cntHist = 0
+   histSpeed = "("
+   for idxH,cur in ipairs(histUnitMovement) do
+      if prv ~= nil then
+         table.insert(recentPlayerMovement, cur)
+         cntHist = cntHist + 1
+         if true then -- if cur.unitX ~= prv.unitX or cur.unitY ~= prv.unitY then
+            if not prv.unitIsMounted then
+               local dist = sqrt(((cur.unitX - prv.unitX) * (cur.unitX - prv.unitX)) + ((cur.unitY - prv.unitY) * (cur.unitY - prv.unitY)))
+               local dur = (cur.ms - prv.ms)
+               histSpeed = histSpeed .. tostring(dist/dur) .. ","
+            end
+         end
+      end
+      prv = cur
+   end
+   --if cntHist > 10 then histUnitMovement = recentPlayerMovement end
+end
+
+function AutoFollow:TrackUnit()
+   if targetUnitTag == nil then
+      local tagLeader, tagReticle = GetGroupLeaderAndReticleUnitTag()
+      targetUnitTag = tagReticle or tagLeader or "player"
+      dmsg("tagLeader:"..tostring(tagLeader))
+      dmsg("tagReticle:"..tostring(tagReticle))
+      dmsg("targetUnitTag:"..tostring(targetUnitTag))
+
+      if targetUnitTag == nil then
+         d("Unit to track could not be established")
+      else
+         targetUnitName = GetUnitName(targetUnitTag)
+         d("Track Unit ON - "..tostring(targetUnitName))
+         EVENT_MANAGER:RegisterForUpdate(ADDON_NAME.."TrackUnit", 100, TrackMovementUnit)
+         TrackMovementUnit()
+      end
+   else
+      d("Track Unit OFF")
+      ClearUnitTracking()
+   end
+end
 function AutoFollow:SingleCheck()
    AutoFollow.FollowLeaderStart()
    --d("SubzoneName:"..tostring(GetPlayerActiveSubzoneName()))
