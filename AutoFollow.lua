@@ -175,8 +175,8 @@ end
 local histPlayerMovement = {}
 local seqPlayerMovement = 0
 local zoneWalkRate = .0001
---local zoneUwpWalkRate = .0001
---local zoneUrwpWalkRate = .0001
+local zoneUwpWalkRate = .0001
+local zoneUrwpWalkRate = .0001
 local histReactionTimes = {}
 local avgReactionTime = 30
 local function TrackPlayerMovement(ms,playerX,playerY,indHoldingForward,playerIsCrouching,playerIsMounted)
@@ -190,77 +190,53 @@ local function TrackPlayerMovement(ms,playerX,playerY,indHoldingForward,playerIs
    local recentPlayerMovement = {}
    local prv
    local cntHist = 0
-   --local cntWalkRate, smWalkRate = 0, 0
-   --local smUwpWalkRate, smUrwpWalkRate = 0, 0
+   local cntWalkRate, smWalkRate = 0, 0
+   local smUwpWalkRate, smUrwpWalkRate = 0, 0
    local msStartedHoldingForward = 0
-   local cntSeqWalking = 0
    for idxH,cur in ipairs(histPlayerMovement) do
       if prv ~= nil then
          table.insert(recentPlayerMovement, cur)
          cntHist = cntHist + 1
+         if cur.playerX ~= prv.playerX or cur.playerY ~= prv.playerY then
+            if prv.indHoldingForward and not prv.playerIsCrouching and not prv.playerIsMounted then
+               local dist = sqrt(((cur.playerX - prv.playerX) * (cur.playerX - prv.playerX)) + ((cur.playerY - prv.playerY) * (cur.playerY - prv.playerY)))
+               local dur = (cur.ms - prv.ms)
+               cntWalkRate = cntWalkRate + 1
+               smWalkRate = smWalkRate + (dist/dur)
+               smUwpWalkRate = smUwpWalkRate + (sqrt(((cur.uwpX - prv.uwpX) * (cur.uwpX - prv.uwpX)) + ((cur.uwpY - prv.uwpY) * (cur.uwpY - prv.uwpY)))/dur)
+               smUrwpWalkRate = smUrwpWalkRate + (sqrt(((cur.urwpX - prv.urwpX) * (cur.urwpX - prv.urwpX)) + ((cur.urwpY - prv.urwpY) * (cur.urwpY - prv.urwpY)))/dur)
+            end
+            if msStartedHoldingForward >= cur.ms - 1000 then
+               histReactionTimes[cur.ms] = (cur.ms - msStartedHoldingForward)
+               msStartedHoldingForward = 0
+               local cntDurations, avgDurations = 0, 0
+               for reactionMs,reactionDuration in pairs(histReactionTimes) do
+                  cntDurations = cntDurations + 1
+                  avgDurations = avgDurations + reactionDuration
+               end
+               avgDurations = avgDurations / cntDurations
+               if cntDurations > 1 then avgReactionTime = avgDurations end
+            end
+         end
          if not prv.indHoldingForward and cur.indHoldingForward and (cur.playerX == prv.playerX and cur.playerY == prv.playerY) then
             msStartedHoldingForward = cur.ms
          end
-         if msStartedHoldingForward >= cur.ms - 1000 and (cur.playerX ~= prv.playerX or cur.playerY ~= prv.playerY) then
-            histReactionTimes[cur.ms] = (cur.ms - msStartedHoldingForward)
-            msStartedHoldingForward = 0
-            local cntDurations, avgDurations = 0, 0
-            for reactionMs,reactionDuration in pairs(histReactionTimes) do
-               cntDurations = cntDurations + 1
-               avgDurations = avgDurations + reactionDuration
-            end
-            avgDurations = avgDurations / cntDurations
-            if cntDurations > 1 then avgReactionTime = avgDurations end
-         end
-         if prv.indHoldingForward and cur.indHoldingForward and (cur.playerX ~= prv.playerX or cur.playerY ~= prv.playerY) not prv.playerIsCrouching and not prv.playerIsMounted then
-            cntSeqWalking = cntSeqWalking + 1
-         else
-            cntSeqWalking = 0
-         end
-         if cntSeqWalking > 3 then
-            local dist = sqrt(((cur.playerX - prv.playerX) * (cur.playerX - prv.playerX)) + ((cur.playerY - prv.playerY) * (cur.playerY - prv.playerY)))
-            local dur = (cur.ms - prv.ms)
-            local walkRate = (dist/dur)
-            if walkRate > zoneWalkRate then zoneWalkRate = walkRate end
-         end
-         --if cur.playerX ~= prv.playerX or cur.playerY ~= prv.playerY then
-         --   if prv.indHoldingForward and not prv.playerIsCrouching and not prv.playerIsMounted then
-         --      local dist = sqrt(((cur.playerX - prv.playerX) * (cur.playerX - prv.playerX)) + ((cur.playerY - prv.playerY) * (cur.playerY - prv.playerY)))
-         --      local dur = (cur.ms - prv.ms)
-         --      cntWalkRate = cntWalkRate + 1
-         --      smWalkRate = smWalkRate + (dist/dur)
-         --      smUwpWalkRate = smUwpWalkRate + (sqrt(((cur.uwpX - prv.uwpX) * (cur.uwpX - prv.uwpX)) + ((cur.uwpY - prv.uwpY) * (cur.uwpY - prv.uwpY)))/dur)
-         --      smUrwpWalkRate = smUrwpWalkRate + (sqrt(((cur.urwpX - prv.urwpX) * (cur.urwpX - prv.urwpX)) + ((cur.urwpY - prv.urwpY) * (cur.urwpY - prv.urwpY)))/dur)
-         --   end
-         --   if msStartedHoldingForward >= cur.ms - 1000 then
-         --      histReactionTimes[cur.ms] = (cur.ms - msStartedHoldingForward)
-         --      msStartedHoldingForward = 0
-         --      local cntDurations, avgDurations = 0, 0
-         --      for reactionMs,reactionDuration in pairs(histReactionTimes) do
-         --         cntDurations = cntDurations + 1
-         --         avgDurations = avgDurations + reactionDuration
-         --      end
-         --      avgDurations = avgDurations / cntDurations
-         --      if cntDurations > 1 then avgReactionTime = avgDurations end
-         --   end
-         --end
       end
       prv = cur
    end
-   --if cntWalkRate > 10 and cntWalkRate == cntHist then
-   --   zoneWalkRate = (smWalkRate/cntWalkRate)
-   --   zoneUwpWalkRate = (smUwpWalkRate/cntWalkRate)
-   --   zoneUrwpWalkRate = (smUrwpWalkRate/cntWalkRate)
-   --end
+   if cntWalkRate > 10 and cntWalkRate == cntHist then
+      zoneWalkRate = (smWalkRate/cntWalkRate)
+      zoneUwpWalkRate = (smUwpWalkRate/cntWalkRate)
+      zoneUrwpWalkRate = (smUrwpWalkRate/cntWalkRate)
+   end
    if cntHist > 10 then histPlayerMovement = recentPlayerMovement end
 end
 
 local function KeepAlive()
-   ptk.SetIndOnFor(ptk.VK_BACK_QUOTE, 100)
+   --ptk.SetIndOnFor(ptk.VK_BACK_QUOTE, 100)
 end
 local function SubZoneChanged()
    msLastSubZoneChanged = GetGameTimeMilliseconds()
-   zoneWalkRate = .0001
    --AnyLogger:LogAnyTxt(ADDON_NAME, "SubZoneChanged")
 end
 local function LeaderZoneChanged(_, unitTag, newZoneName)
@@ -283,7 +259,10 @@ function AutoFollow:Initialize()
    AutoFollowSavedVariables.log = {}
    EVENT_MANAGER:RegisterForEvent(ADDON_NAME.."SubZoneChanged", EVENT_CURRENT_SUBZONE_LIST_CHANGED, SubZoneChanged) -- * EVENT_CURRENT_SUBZONE_LIST_CHANGED
    EVENT_MANAGER:RegisterForEvent(ADDON_NAME.."LeaderZoneChanged", EVENT_ZONE_UPDATE, LeaderZoneChanged) -- * EVENT_ZONE_UPDATE (*string* _unitTag_, *string* _newZoneName_)
+
+
    EVENT_MANAGER:RegisterForUpdate(ADDON_NAME.."GroupTrack", 10, GroupTrack)
+
    EVENT_MANAGER:RegisterForUpdate(ADDON_NAME.."KeepAlive", 10*60*1000, KeepAlive)
 end
 
@@ -323,6 +302,9 @@ local function MoveToTarget()
       playerX, playerY, playerHeading = GetMapPlayerPosition("player") -- * GetMapPlayerPosition(*string* _unitTag_) ** _Returns:_ *number* _normalizedX_, *number* _normalizedZ_, *number* _heading_, *bool* _isShownInCurrentMap_
       local tagX, tagY, tagHeading, tagOnSamePlayerMap = GetMapPlayerPosition(targetUnitTag) -- * GetMapPlayerPosition(*string* _unitTag_) ** _Returns:_ *number* _normalizedX_, *number* _normalizedZ_, *number* _heading_, *bool* _isShownInCurrentMap_
       local tagInSupportRange = IsUnitInGroupSupportRange(targetUnitTag) -- * IsUnitInGroupSupportRange(*string* _unitTag_) ** _Returns:_ *bool* _result_
+
+      --dmsg(" ".."Range:"..tostring(IsUnitInGroupSupportRange(targetUnitTag))) -- * IsUnitInGroupSupportRange(*string* _unitTag_) ** _Returns:_ *bool* _result_
+      --dmsg(" ".."Crumb:"..tostring(IsUnitWorldMapPositionBreadcrumbed(targetUnitTag))) -- * IsUnitWorldMapPositionBreadcrumbed(*string* _unitTag_) ** _Returns:_ *bool* _isBreadcrumb_
       targetOnSamePlayerMap = tagInSupportRange
       if targetOnSamePlayerMap then targetX, targetY = tagX, tagY end
 
